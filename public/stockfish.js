@@ -1,0 +1,1 @@
+// Simulated placeholder for stockfish.js (WebAssembly loader)
