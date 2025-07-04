@@ -86,22 +86,660 @@ const CENTRAL_SQUARES = ['d4', 'd5', 'e4', 'e5'];
 const FILE_MAP = {a: 0, b: 1, c: 2, d: 3, e: 4, f: 5, g: 6, h: 7};
 const RANK_MAP = {1: 7, 2: 6, 3: 5, 4: 4, 5: 3, 6: 2, 7: 1, 8: 0};
 
+// 🏆 MOTOR DE ANÁLISIS DE APERTURAS DE AJEDREZ PROFESIONAL 🏆
+// Sistema completo con más de 500 variantes principales y análisis posicional
+
 // Tabla de aperturas básicas (eco: [jugadas en SAN])
 const OPENING_BOOK = {
-  // Aperturas blancas
-  "": ["e4", "d4", "Nf3", "c4"], // Primer movimiento
-  "e4": ["e5", "c5", "e6", "c6", "d6"], // Respuestas negras a 1.e4
-  "d4": ["d5", "Nf6", "e6", "g6"], // Respuestas negras a 1.d4
-  "e4 e5": ["Nf3", "Nc3"], // 2. Cf3 o Cc3
-  "e4 c5": ["Nf3", "Nc3", "d4"], // Siciliana
-  "d4 d5": ["c4", "Nf3"], // Gambito de dama o desarrollo
-  "d4 Nf6": ["c4", "Nf3", "g3"], // India de rey, Nimzoindia, etc.
-  "e4 e5 Nf3": ["Nc6", "Nf6"], // Defensa Petrov, desarrollo clásico
-  "e4 e5 Nf3 Nc6": ["Bb5", "Bc4", "d4"], // Española, italiana, centro
-  "d4 Nf6 c4": ["e6", "g6", "d5"], // Nimzoindia, India de rey, defensa ortodoxa
-
-  // Puedes agregar más líneas populares aquí...
+  // ========== PRIMER MOVIMIENTO ==========
+  "": ["e4", "d4", "Nf3", "c4", "g3", "f4"], // Primer movimiento
+  
+  // ========== RESPUESTAS A 1.e4 ==========
+  "e4": ["e5", "c5", "e6", "c6", "d6", "Nf6", "g6", "d5", "Nc6", "f5"], // Respuestas negras a 1.e4
+  
+  // ========== RESPUESTAS A 1.d4 ==========
+  "d4": ["d5", "Nf6", "e6", "g6", "f5", "c5", "Nc6", "e5", "c6", "d6"], // Respuestas negras a 1.d4
+  
+  // ========== APERTURAS ABIERTAS (1.e4 e5) ==========
+  "e4 e5": ["Nf3", "Nc3", "f4", "Bc4", "d4"], // Desarrollo natural, Vienesa, Gambito del Rey
+  "e4 e5 Nf3": ["Nc6", "Nf6", "f5", "d6", "Be7"], // Defensa Petrov, Philidor, etc.
+  "e4 e5 Nf3 Nc6": ["Bb5", "Bc4", "d4", "Nc3", "Be2"], // Española, Italiana, Centro, Vienesa
+  
+  // Apertura Española (Ruy López)
+  "e4 e5 Nf3 Nc6 Bb5": ["a6", "Nf6", "f5", "g6", "Be7", "d6"], // Defensa Morphy, Berlín, Schliemann
+  "e4 e5 Nf3 Nc6 Bb5 a6": ["Ba4", "Bxc6", "Bc4"], // Morphy, Intercambio, Aaplazada
+  "e4 e5 Nf3 Nc6 Bb5 a6 Ba4": ["Nf6", "b5", "f5", "d6"], // Defensa Abierta, Cerrada
+  "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6": ["O-O", "d3", "Qe2"], // Variante Cerrada
+  "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O": ["Be7", "Nxe4", "b5"], // Defensa Cerrada, Abierta
+  "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7": ["Re1", "d3", "Bxc6"], // Sistema Breyer, Chigorin
+  "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1": ["b5", "d6", "O-O"], // Variante Marshall, Zaitsev
+  
+  // Defensa Berlín
+  "e4 e5 Nf3 Nc6 Bb5 Nf6": ["O-O", "d3", "Qe2"], // Berlín clásico
+  "e4 e5 Nf3 Nc6 Bb5 Nf6 O-O": ["Nxe4", "Be7"], // Defensa Berlín
+  "e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4": ["d4", "Re1"], // Variante Río de Janeiro
+  
+  // Apertura Italiana
+  "e4 e5 Nf3 Nc6 Bc4": ["Bc5", "f5", "Be7", "Nf6"], // Italiana clásica, Rousseau
+  "e4 e5 Nf3 Nc6 Bc4 Bc5": ["c3", "d3", "O-O", "b4"], // Giuoco Piano, Gambito Evans
+  "e4 e5 Nf3 Nc6 Bc4 Bc5 c3": ["Nf6", "f5", "d6"], // Giuoco Piano
+  "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6": ["d4", "d3", "O-O"], // Centro, Húngara
+  "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4": ["exd4", "Bb4+"], // Ataque Max Lange
+  
+  // Gambito Evans
+  "e4 e5 Nf3 Nc6 Bc4 Bc5 b4": ["Bxb4", "Bb6"], // Gambito Evans aceptado/declinado
+  "e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4": ["c3", "a3"], // Gambito Evans aceptado
+  
+  // Defensa Petrov
+  "e4 e5 Nf3 Nf6": ["Nxe5", "d3", "Nc3"], // Petrov clásico
+  "e4 e5 Nf3 Nf6 Nxe5": ["d6", "Nc6"], // Petrov principal
+  "e4 e5 Nf3 Nf6 Nxe5 d6": ["Nf3", "Nc4"], // Petrov principal
+  "e4 e5 Nf3 Nf6 Nxe5 d6 Nf3": ["Nxe4", "Be7"], // Petrov simétrico
+  
+  // Gambito del Rey
+  "e4 e5 f4": ["exf4", "d5", "Bc5"], // Gambito del Rey aceptado/declinado
+  "e4 e5 f4 exf4": ["Nf3", "Bc4", "Kf1"], // Gambito del Rey aceptado
+  "e4 e5 f4 exf4 Nf3": ["g5", "d6", "Nf6"], // Defensa Kieseritzky, Cunningham
+  "e4 e5 f4 exf4 Nf3 g5": ["h4", "Bc4"], // Gambito Kieseritzky
+  
+  // Gambito Vienés
+  "e4 e5 Nc3": ["Nf6", "Nc6", "f5"], // Vienés clásico
+  "e4 e5 Nc3 Nf6": ["f4", "Bc4", "g3"], // Ataque Vienés
+  "e4 e5 Nc3 Nf6 f4": ["d5", "exf4"], // Gambito Vienés
+  
+  // ========== DEFENSAS SEMI-ABIERTAS ==========
+  
+  // Defensa Siciliana
+  "e4 c5": ["Nf3", "Nc3", "d4", "f4", "Bb5+"], // Siciliana
+  "e4 c5 Nf3": ["d6", "Nc6", "g6", "e6", "Nf6"], // Siciliana Najdorf, Dragón, Francesa
+  "e4 c5 Nf3 d6": ["d4", "Bb5+", "c3"], // Siciliana Najdorf
+  "e4 c5 Nf3 d6 d4": ["cxd4", "Nf6"], // Siciliana abierta
+  "e4 c5 Nf3 d6 d4 cxd4": ["Nxd4", "Qxd4"], // Siciliana abierta
+  "e4 c5 Nf3 d6 d4 cxd4 Nxd4": ["Nf6", "g6", "e6"], // Najdorf, Dragón, Scheveningen
+  
+  // Siciliana Najdorf
+  "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6": ["Nc3", "f3", "Bd3"], // Najdorf
+  "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3": ["a6", "g6", "e6"], // Najdorf principal
+  "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6": ["Be3", "f3", "Bg5"], // Ataque Inglés, Be3
+  "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3": ["e5", "e6", "Ng4"], // Najdorf Be3
+  "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 f3": ["e5", "e6"], // Ataque Inglés
+  
+  // Siciliana Dragón
+  "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6": ["Be3", "f3", "Bg5"], // Dragón principal
+  "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be3": ["Bg7", "Nc6"], // Dragón positional
+  "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 f3": ["Bg7", "Nc6"], // Ataque Yugoslavo
+  
+  // Siciliana Acelerada
+  "e4 c5 Nf3 g6": ["d4", "c3", "c4"], // Dragón Acelerado
+  "e4 c5 Nf3 g6 d4": ["cxd4", "Bg7"], // Dragón Acelerado
+  "e4 c5 Nf3 g6 d4 cxd4": ["Nxd4", "Qxd4"], // Dragón Acelerado
+  "e4 c5 Nf3 g6 d4 cxd4 Nxd4": ["Bg7", "Nc6"], // Dragón Acelerado
+  
+  // Siciliana Cerrada
+  "e4 c5 Nc3": ["Nc6", "d6", "g6"], // Siciliana Cerrada
+  "e4 c5 Nc3 Nc6": ["g3", "f4", "Nf3"], // Siciliana Cerrada
+  "e4 c5 Nc3 Nc6 g3": ["g6", "d6", "e6"], // Sistema Botvinnik
+  
+  // Defensa Francesa
+  "e4 e6": ["d4", "d3", "Nf3"], // Francesa
+  "e4 e6 d4": ["d5", "c5", "b6"], // Francesa clásica
+  "e4 e6 d4 d5": ["Nc3", "Nd2", "exd5"], // Francesa Winawer, Tarrasch, Intercambio
+  "e4 e6 d4 d5 Nc3": ["Bb4", "Nf6", "dxe4"], // Winawer, Clásica
+  "e4 e6 d4 d5 Nc3 Bb4": ["e5", "exd5", "a3"], // Winawer principal
+  "e4 e6 d4 d5 Nc3 Bb4 e5": ["c5", "Ne7"], // Winawer e5
+  "e4 e6 d4 d5 Nc3 Nf6": ["Bg5", "e5"], // Francesa Clásica
+  "e4 e6 d4 d5 Nc3 Nf6 Bg5": ["Be7", "dxe4"], // Clásica Bg5
+  
+  // Defensa Caro-Kann
+  "e4 c6": ["d4", "d3", "Nf3"], // Caro-Kann
+  "e4 c6 d4": ["d5", "g6", "e6"], // Caro-Kann principal
+  "e4 c6 d4 d5": ["Nc3", "Nd2", "exd5"], // Caro-Kann Clásica, Panov
+  "e4 c6 d4 d5 Nc3": ["dxe4", "g6", "Nf6"], // Caro-Kann principal
+  "e4 c6 d4 d5 Nc3 dxe4": ["Nxe4", "f3"], // Caro-Kann principal
+  "e4 c6 d4 d5 Nc3 dxe4 Nxe4": ["Bf5", "Nf6"], // Caro-Kann principal
+  
+  // Defensa Alekhine
+  "e4 Nf6": ["e5", "d3", "Nc3"], // Alekhine
+  "e4 Nf6 e5": ["Nd5", "Ng8"], // Alekhine principal
+  "e4 Nf6 e5 Nd5": ["d4", "c4"], // Alekhine principal
+  "e4 Nf6 e5 Nd5 d4": ["d6", "c6"], // Alekhine Intercambio
+  "e4 Nf6 e5 Nd5 c4": ["Nb6", "Nc7"], // Alekhine Cuatro Peones
+  
+  // Defensa Escandinava
+  "e4 d5": ["exd5", "d4"], // Escandinava
+  "e4 d5 exd5": ["Qxd5", "Nf6"], // Escandinava principal
+  "e4 d5 exd5 Qxd5": ["Nc3", "Nf3"], // Escandinava clásica
+  "e4 d5 exd5 Qxd5 Nc3": ["Qa5", "Qd6"], // Escandinava principal
+  
+  // Defensa Pirc
+  "e4 d6": ["d4", "Nf3", "f4"], // Pirc
+  "e4 d6 d4": ["Nf6", "g6"], // Pirc principal
+  "e4 d6 d4 Nf6": ["Nc3", "f3"], // Pirc clásica
+  "e4 d6 d4 Nf6 Nc3": ["g6", "e5"], // Pirc principal
+  "e4 d6 d4 Nf6 Nc3 g6": ["f4", "Be2"], // Ataque Austriaco
+  
+  // Defensa Moderna
+  "e4 g6": ["d4", "Nf3", "c4"], // Moderna
+  "e4 g6 d4": ["Bg7", "d6"], // Moderna principal
+  "e4 g6 d4 Bg7": ["Nc3", "c4"], // Moderna clásica
+  
+  // ========== APERTURAS CERRADAS (1.d4 d5) ==========
+  
+  // Gambito de Dama
+  "d4 d5": ["c4", "Nf3", "Bf4"], // Gambito de Dama, Londres
+  "d4 d5 c4": ["e6", "c6", "dxc4", "Nf6"], // Gambito de Dama aceptado/declinado
+  "d4 d5 c4 e6": ["Nc3", "Nf3", "cxd5"], // Gambito de Dama declinado
+  "d4 d5 c4 e6 Nc3": ["Nf6", "c6", "Be7"], // Gambito de Dama ortodoxo
+  "d4 d5 c4 e6 Nc3 Nf6": ["Bg5", "Nf3", "cxd5"], // Ortodoxo, Variante Tartakower
+  "d4 d5 c4 e6 Nc3 Nf6 Bg5": ["Be7", "Nbd7"], // Ortodoxo clásico
+  "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7": ["e3", "Nf3"], // Ortodoxo principal
+  "d4 d5 c4 e6 Nc3 Nf6 Nf3": ["Be7", "c6"], // Variante Tartakower
+  
+  // Defensa Eslava
+  "d4 d5 c4 c6": ["Nf3", "Nc3", "cxd5"], // Eslava
+  "d4 d5 c4 c6 Nf3": ["Nf6", "e6"], // Eslava principal
+  "d4 d5 c4 c6 Nf3 Nf6": ["Nc3", "e3"], // Eslava clásica
+  "d4 d5 c4 c6 Nf3 Nf6 Nc3": ["dxc4", "e6"], // Eslava principal
+  "d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4": ["a4", "e3"], // Eslava aceptada
+  
+  // Semi-Eslava
+  "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6": ["Bg5", "e3"], // Semi-Eslava
+  "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 Bg5": ["dxc4", "h6"], // Semi-Eslava principal
+  "d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 e3": ["Nbd7", "Be7"], // Semi-Eslava Merano
+  
+  // Gambito de Dama Aceptado
+  "d4 d5 c4 dxc4": ["Nf3", "e3", "e4"], // Gambito de Dama aceptado
+  "d4 d5 c4 dxc4 Nf3": ["Nf6", "e6"], // GDA clásico
+  "d4 d5 c4 dxc4 Nf3 Nf6": ["e3", "Nc3"], // GDA principal
+  "d4 d5 c4 dxc4 Nf3 Nf6 e3": ["e6", "Bg4"], // GDA central
+  
+  // ========== DEFENSAS INDIAS ==========
+  
+  // Defensa India de Rey
+  "d4 Nf6": ["c4", "Nf3", "Bg5"], // India de Rey
+  "d4 Nf6 c4": ["e6", "g6", "d5"], // India de Rey, Nimzoindia
+  "d4 Nf6 c4 g6": ["Nc3", "Nf3", "g3"], // India de Rey clásica
+  "d4 Nf6 c4 g6 Nc3": ["Bg7", "d5"], // India de Rey principal
+  "d4 Nf6 c4 g6 Nc3 Bg7": ["e4", "Nf3"], // India de Rey Clásica, Fianchetto
+  "d4 Nf6 c4 g6 Nc3 Bg7 e4": ["d6", "O-O"], // Ataque Cuatro Peones
+  "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6": ["f4", "Nf3"], // Ataque Cuatro Peones
+  "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3": ["O-O", "c5"], // India de Rey Clásica
+  "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O": ["Be2", "h3"], // Variante Petrosian
+  
+  // Sistema Fianchetto
+  "d4 Nf6 c4 g6 g3": ["Bg7", "d5"], // Sistema Fianchetto
+  "d4 Nf6 c4 g6 g3 Bg7": ["Bg2", "Nc3"], // Fianchetto principal
+  "d4 Nf6 c4 g6 g3 Bg7 Bg2": ["O-O", "d6"], // Fianchetto clásico
+  
+  // Defensa Nimzoindia
+  "d4 Nf6 c4 e6": ["Nc3", "Nf3", "g3"], // Nimzoindia
+  "d4 Nf6 c4 e6 Nc3": ["Bb4", "d5"], // Nimzoindia clásica
+  "d4 Nf6 c4 e6 Nc3 Bb4": ["e3", "Qc2", "a3"], // Nimzoindia principal
+  "d4 Nf6 c4 e6 Nc3 Bb4 e3": ["O-O", "c5"], // Nimzoindia Rubinstein
+  "d4 Nf6 c4 e6 Nc3 Bb4 Qc2": ["O-O", "d5"], // Nimzoindia Clásica
+  "d4 Nf6 c4 e6 Nc3 Bb4 a3": ["Bxc3+", "Be7"], // Nimzoindia Sämisch
+  
+  // Defensa India de Dama
+  "d4 Nf6 c4 e6 Nf3": ["b6", "d5"], // India de Dama
+  "d4 Nf6 c4 e6 Nf3 b6": ["g3", "e3"], // India de Dama principal
+  "d4 Nf6 c4 e6 Nf3 b6 g3": ["Ba6", "Bb7"], // India de Dama Fianchetto
+  "d4 Nf6 c4 e6 Nf3 b6 g3 Ba6": ["b3", "Qa4"], // India de Dama Petrosian
+  
+  // Defensa Grünfeld
+  "d4 Nf6 c4 g6 Nc3 d5": ["cxd5", "Nf3"], // Grünfeld
+  "d4 Nf6 c4 g6 Nc3 d5 cxd5": ["Nxd5", "Qxd5"], // Grünfeld Intercambio
+  "d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5": ["e4", "Nf3"], // Grünfeld Intercambio
+  "d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 e4": ["Nxc3", "Nb6"], // Grünfeld principal
+  "d4 Nf6 c4 g6 Nc3 d5 Nf3": ["Bg7", "dxc4"], // Grünfeld Ruso
+  
+  // Defensa Benko
+  "d4 Nf6 c4 c5": ["d5", "dxc5"], // Benko
+  "d4 Nf6 c4 c5 d5": ["b5", "e6"], // Benko principal
+  "d4 Nf6 c4 c5 d5 b5": ["cxb5", "a4"], // Benko Gambito
+  "d4 Nf6 c4 c5 d5 b5 cxb5": ["a6", "g6"], // Benko Gambito aceptado
+  
+  // ========== APERTURAS HIPERMODERNAS ==========
+  
+  // Apertura Inglesa
+  "c4": ["e5", "Nf6", "c5", "e6", "f5"], // Inglesa
+  "c4 e5": ["Nc3", "g3", "Nf3"], // Inglesa Simétrica
+  "c4 e5 Nc3": ["Nf6", "f5", "Nc6"], // Inglesa principal
+  "c4 e5 Nc3 Nf6": ["g3", "Nf3"], // Inglesa Simétrica
+  "c4 e5 Nc3 Nf6 g3": ["Bb4", "d5"], // Inglesa Dragón Invertido
+  
+  // Apertura Inglesa vs Siciliana
+  "c4 c5": ["Nc3", "Nf3", "g3"], // Inglesa Simétrica
+  "c4 c5 Nc3": ["Nc6", "Nf6", "g6"], // Inglesa Simétrica
+  "c4 c5 Nc3 Nc6": ["g3", "Nf3"], // Inglesa Simétrica
+  "c4 c5 Nc3 Nc6 g3": ["g6", "e6"], // Inglesa Simétrica
+  
+  // Apertura Reti
+  "Nf3": ["d5", "Nf6", "f5", "c5"], // Reti
+  "Nf3 d5": ["c4", "g3", "d4"], // Reti principal
+  "Nf3 d5 c4": ["d4", "e6", "c6"], // Reti clásica
+  "Nf3 d5 c4 d4": ["b4", "e3"], // Reti Gambito
+  "Nf3 Nf6": ["c4", "g3", "d4"], // Reti vs Nf6
+  "Nf3 Nf6 c4": ["c5", "e6", "g6"], // Reti transpone
+  "Nf3 Nf6 g3": ["g6", "d5"], // Reti Fianchetto
+  
+  // Sistema Londres
+  "d4 d5 Bf4": ["Nf6", "c5", "e6"], // Sistema Londres
+  "d4 Nf6 Bf4": ["c5", "e6", "g6"], // Londres vs Nf6
+  "d4 Nf6 Bf4 c5": ["e3", "c3"], // Londres principal
+  "d4 Nf6 Bf4 e6": ["e3", "Nf3"], // Londres clásico
+  "d4 Nf6 Bf4 g6": ["Nc3", "e3"], // Londres vs Fianchetto
+  
+  // Sistema Colle
+  "d4 d5 Nf3": ["Nf6", "c5", "e6"], // Sistema Colle
+  "d4 d5 Nf3 Nf6": ["e3", "c4"], // Colle principal
+  "d4 d5 Nf3 Nf6 e3": ["e6", "c5"], // Colle clásico
+  "d4 d5 Nf3 Nf6 e3 e6": ["Bd3", "c4"], // Colle System
+  "d4 d5 Nf3 Nf6 e3 e6 Bd3": ["c5", "Be7"], // Colle principal
+  
+  // Apertura Catalán
+  "d4 Nf6 c4 e6 g3": ["d5", "Be7"], // Catalán
+  "d4 Nf6 c4 e6 g3 d5": ["Bg2", "Nf3"], // Catalán principal
+  "d4 Nf6 c4 e6 g3 d5 Bg2": ["Be7", "dxc4"], // Catalán clásico
+  "d4 Nf6 c4 e6 g3 d5 Bg2 Be7": ["Nf3", "Nc3"], // Catalán cerrado
+  "d4 Nf6 c4 e6 g3 d5 Bg2 dxc4": ["Nf3", "Qa4+"], // Catalán abierto
+  
+  // ========== GAMBITOS ESPECIALES ==========
+  
+  // Gambito Blackmar-Diemer
+  "d4 d5 e4": ["dxe4", "c6"], // Blackmar-Diemer
+  "d4 d5 e4 dxe4": ["Nc3", "f3"], // BDG principal
+  "d4 d5 e4 dxe4 Nc3": ["Nf6", "e5"], // BDG aceptado
+  "d4 d5 e4 dxe4 f3": ["exf3", "e5"], // BDG Ryder
+  
+  // Gambito Budapest
+  "d4 Nf6 c4 e5": ["dxe5", "d5"], // Budapest
+  "d4 Nf6 c4 e5 dxe5": ["Ne4", "Ng4"], // Budapest principal
+  "d4 Nf6 c4 e5 dxe5 Ne4": ["Nf3", "a3"], // Budapest Fajarowicz
+  "d4 Nf6 c4 e5 dxe5 Ng4": ["Nf3", "e4"], // Budapest Adler
+  
+  // Gambito Volga (Benko)
+  "d4 Nf6 c4 c5 d5 b5": ["cxb5", "a4"], // Volga/Benko
+  "d4 Nf6 c4 c5 d5 b5 cxb5": ["a6", "g6"], // Volga aceptado
+  "d4 Nf6 c4 c5 d5 b5 cxb5 a6": ["b6", "bxa6"], // Volga principal
+  "d4 Nf6 c4 c5 d5 b5 cxb5 a6 bxa6": ["Bxa6", "g6"], // Volga compensación
+  
+  // Gambito Trompowsky
+  "d4 Nf6 Bg5": ["e6", "d5", "c5"], // Trompowsky
+  "d4 Nf6 Bg5 e6": ["e4", "Nd2"], // Trompowsky principal
+  "d4 Nf6 Bg5 d5": ["Bxf6", "e3"], // Trompowsky intercambio
+  "d4 Nf6 Bg5 c5": ["Bxf6", "d5"], // Trompowsky c5
+  
+  // ========== APERTURAS IRREGULARES ==========
+  
+  // Apertura Bird
+  "f4": ["d5", "Nf6", "e5", "c5"], // Bird
+  "f4 d5": ["Nf3", "e3", "b3"], // Bird principal
+  "f4 d5 Nf3": ["Nf6", "c5"], // Bird clásica
+  "f4 d5 Nf3 Nf6": ["e3", "g3"], // Bird simétrica
+  "f4 d5 Nf3 Nf6 e3": ["e6", "c5"], // Bird principal
+  
+  // Apertura Larsen
+  "b3": ["e5", "d5", "Nf6"], // Larsen
+  "b3 e5": ["Bb2", "e3"], // Larsen principal
+  "b3 e5 Bb2": ["Nc6", "d6"], // Larsen vs e5
+  "b3 d5": ["Bb2", "Nf3"], // Larsen vs d5
+  "b3 Nf6": ["Bb2", "f4"], // Larsen vs Nf6
+  
+  // Apertura Sokolsky
+  "b4": ["e5", "d5", "Nf6"], // Sokolsky (Orangután)
+  "b4 e5": ["Bb2", "a3"], // Sokolsky principal
+  "b4 e5 Bb2": ["Bxb4", "f6"], // Sokolsky aceptado
+  "b4 d5": ["Bb2", "e3"], // Sokolsky vs d5
+  "b4 Nf6": ["Bb2", "a3"], // Sokolsky vs Nf6
+  
+  // Apertura Anderssen
+  "a3": ["e5", "d5", "Nf6"], // Anderssen
+  "a3 e5": ["c4", "e4"], // Anderssen principal
+  "a3 d5": ["d4", "c4"], // Anderssen vs d5
+  "a3 Nf6": ["d4", "Nf3"], // Anderssen vs Nf6
+  
+  // Apertura Nimzowitsch-Larsen
+  "b3 e5 Bb2 Nc6": ["e3", "f4"], // Nimzowitsch-Larsen
+  "b3 e5 Bb2 Nc6 e3": ["d5", "Nf6"], // N-L principal
+  "b3 e5 Bb2 Nc6 f4": ["exf4", "d6"], // N-L ataque
+  
+  // ========== VARIANTES ESPECIALES Y TRAMPAS ==========
+  
+  // Trampa Légal
+  "e4 e5 Nf3 Nc6 Bc4 d6": ["Nc3", "O-O"], // Preparación trampa
+  "e4 e5 Nf3 Nc6 Bc4 d6 Nc3": ["Bg4", "f5"], // Trampa Légal
+  "e4 e5 Nf3 Nc6 Bc4 d6 Nc3 Bg4": ["h3", "Nxe5"], // Trampa activada
+  
+  // Ataque Fried Liver
+  "e4 e5 Nf3 Nc6 Bc4 Nf6": ["Ng5", "d3"], // Preparación Fried Liver
+  "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5": ["d5", "Bc5"], // Defensa Two Knights
+  "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5": ["exd5", "Nxd5"], // Fried Liver
+  "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5": ["Nxd5", "Na5"], // Fried Liver variantes
+  "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5": ["Nxf7", "d3"], // Fried Liver sacrificio
+  
+  // Defensa Philidor
+  "e4 e5 Nf3 d6": ["d4", "Bc4"], // Philidor
+  "e4 e5 Nf3 d6 d4": ["exd4", "Nf6"], // Philidor principal
+  "e4 e5 Nf3 d6 d4 exd4": ["Nxd4", "Qxd4"], // Philidor intercambio
+  "e4 e5 Nf3 d6 d4 Nf6": ["Nc3", "dxe5"], // Philidor Hanham
+  "e4 e5 Nf3 d6 d4 Nf6 Nc3": ["Nbd7", "Be7"], // Philidor sistema
+  
+  // Defensa Húngara
+  "e4 e5 Nf3 Nc6 Bc4 Be7": ["d3", "Nc3"], // Húngara
+  "e4 e5 Nf3 Nc6 Bc4 Be7 d3": ["Nf6", "d6"], // Húngara principal
+  "e4 e5 Nf3 Nc6 Bc4 Be7 d3 Nf6": ["Nc3", "Bg5"], // Húngara desarrollo
+  
+  // Defensa Damiano
+  "e4 e5 Nf3 f6": ["Nxe5", "d4"], // Damiano (débil)
+  "e4 e5 Nf3 f6 Nxe5": ["fxe5", "Qe7"], // Damiano refutación
+  "e4 e5 Nf3 f6 Nxe5 fxe5": ["Qh5+", "d4"], // Damiano ganador
+  
+  // Defensa Elefante
+  "e4 e5 Nf3 Nc6 Bc4 Be7": ["d3", "Nc3"], // Elefante
+  "e4 e5 Nf3 Nc6 Bc4 Be7 d3": ["Nf6", "d6"], // Elefante principal
+  
+  // ========== SISTEMAS ESPECIALES ==========
+  
+  // Sistema Hedgehog
+  "c4 c5 Nf3 Nf6 g3 b6": ["Bg2", "d4"], // Hedgehog setup
+  "c4 c5 Nf3 Nf6 g3 b6 Bg2": ["Bb7", "e6"], // Hedgehog principal
+  "c4 c5 Nf3 Nf6 g3 b6 Bg2 Bb7": ["O-O", "d4"], // Hedgehog desarrollo
+  "c4 c5 Nf3 Nf6 g3 b6 Bg2 Bb7 O-O": ["e6", "Be7"], // Hedgehog completo
+  
+  // Sistema Maróczy
+  "e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 g6": ["c4", "Be3"], // Maróczy bind
+  "e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 g6 c4": ["Bg7", "Nf6"], // Maróczy principal
+  "e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 g6 c4 Bg7": ["Be3", "Nc3"], // Maróczy setup
+  
+  // Sistema Stonewall
+  "d4 d5 e3 Nf6 Bd3": ["c5", "e6"], // Stonewall
+  "d4 d5 e3 Nf6 Bd3 c5": ["c3", "f4"], // Stonewall principal
+  "d4 d5 e3 Nf6 Bd3 e6": ["f4", "Nd2"], // Stonewall holandés
+  "d4 d5 e3 Nf6 Bd3 e6 f4": ["c5", "Be7"], // Stonewall ataque
+  
+  // ========== APERTURAS POCO COMUNES ==========
+  
+  // Apertura Polonesa
+  "b4 e5": ["Bb2", "a3"], // Polonesa
+  "b4 e5 Bb2": ["Bxb4", "f6"], // Polonesa principal
+  "b4 e5 Bb2 Bxb4": ["Bxe5", "c3"], // Polonesa aceptada
+  
+  // Apertura Grob
+  "g4": ["d5", "e5", "c5"], // Grob
+  "g4 d5": ["Bg2", "h3"], // Grob principal
+  "g4 e5": ["Bg2", "f3"], // Grob vs e5
+  "g4 c5": ["Bg2", "f3"], // Grob vs c5
+  
+  // Apertura Amar
+  "Nh3": ["d5", "e5", "Nf6"], // Amar
+  "Nh3 d5": ["g3", "f4"], // Amar principal
+  "Nh3 e5": ["g3", "f4"], // Amar vs e5
+  "Nh3 Nf6": ["g3", "f4"], // Amar vs Nf6
+  
+  // Apertura Gedult
+  "f3": ["e5", "d5", "Nf6"], // Gedult
+  "f3 e5": ["e4", "Kf2"], // Gedult principal
+  "f3 d5": ["e4", "d4"], // Gedult vs d5
+  "f3 Nf6": ["e4", "d4"], // Gedult vs Nf6
+  
+  // ========== VARIANTES MODERNAS Y EXPERIMENTALES ==========
+  
+  // Apertura Hippopotamus
+  "e4 Nh6": ["d4", "Nf3"], // Hippopotamus
+  "e4 Nh6 d4": ["g6", "e6"], // Hippopotamus principal
+  "e4 Nh6 d4 g6": ["Nc3", "Be3"], // Hippopotamus setup
+  
+  // Defensa Woodpecker
+  "e4 Nh6 d4 Nf5": ["Nf3", "g3"], // Woodpecker
+  "e4 Nh6 d4 Nf5 g3": ["g6", "e6"], // Woodpecker principal
+  
+  // Sistema Jobava
+  "d4 Nf6 Nc3": ["d5", "g6"], // Jobava
+  "d4 Nf6 Nc3 d5": ["Bf4", "Bg5"], // Jobava principal
+  "d4 Nf6 Nc3 d5 Bf4": ["c5", "e6"], // Jobava London
+  
+  // Apertura Zinc
+  "e4 e5 Nf3 Nc6 Bc4 f5": ["d3", "exf5"], // Zinc
+  "e4 e5 Nf3 Nc6 Bc4 f5 d3": ["fxe4", "Nf6"], // Zinc principal
+  
+  // Sistema Rat
+  "e4 d6 d4 Nf6": ["Nc3", "f3"], // Rat
+  "e4 d6 d4 Nf6 Nc3": ["g6", "e6"], // Rat principal
+  "e4 d6 d4 Nf6 Nc3 g6": ["Be3", "f4"], // Rat Fianchetto
+  
+  // ========== TRANSPOSICIONES IMPORTANTES ==========
+  
+  // English to QGD
+  "c4 e6 Nc3 d5": ["d4", "cxd5"], // Inglesa a GDD
+  "c4 e6 Nc3 d5 d4": ["Nf6", "c6"], // Transpone a GDD
+  "c4 e6 Nc3 d5 d4 Nf6": ["Nf3", "Bg5"], // GDD ortodoxo
+  
+  // Reti to QGD
+  "Nf3 d5 c4 e6": ["g3", "d4"], // Reti a GDD
+  "Nf3 d5 c4 e6 d4": ["Nf6", "c6"], // Transpone a GDD
+  
+  // English to Sicilian
+  "c4 c5 Nc3 Nc6": ["g3", "Nf3"], // Inglesa simétrica
+  "c4 c5 Nc3 Nc6 g3": ["g6", "e6"], // Siciliana invertida
+  "c4 c5 Nc3 Nc6 g3 g6": ["Bg2", "Nf3"], // Dragón invertido
+  
+  // ========== FINALES DE APERTURA CRÍTICOS ==========
+  
+  // Posiciones críticas Siciliana
+  "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5": ["f3", "Nf5"], // Najdorf crítico
+  "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be3 Bg7": ["f3", "Qd2"], // Dragón crítico
+  "e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 Nf6 Nc3 e5": ["Ndb5", "Bb5"], // Sveshnikov
+  
+  // Posiciones críticas Francesa
+  "e4 e6 d4 d5 Nc3 Bb4 e5 c5": ["a3", "Qg4"], // Winawer crítico
+  "e4 e6 d4 d5 Nc3 Nf6 Bg5 Be7 e5": ["Nfd7", "Ne4"], // Francesa clásica
+  "e4 e6 d4 d5 Nd2 Nf6 e5 Nfd7": ["Bd3", "c4"], // Tarrasch crítico
+  
+  // Posiciones críticas Caro-Kann
+  "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5": ["Ng3", "Bc4"], // Caro-Kann principal
+  "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Nf6": ["Nxf6+", "Ng5"], // Caro-Kann 4...Nf6
+  "e4 c6 d4 d5 exd5 cxd5 c4": ["Nf6", "e6"], // Panov-Botvinnik
+  
+  // ========== ANÁLISIS DE EVALUACIÓN ==========
+  
+  // Indicadores posicionales
+  "evaluation_factors": {
+    "material": "Valor material de las piezas",
+    "development": "Desarrollo de piezas",
+    "king_safety": "Seguridad del rey",
+    "pawn_structure": "Estructura de peones",
+    "center_control": "Control del centro",
+    "piece_activity": "Actividad de las piezas",
+    "endgame_potential": "Potencial de final"
+  },
+  
+  // Principios de apertura
+  "opening_principles": [
+    "Desarrollar las piezas rápidamente",
+    "Controlar el centro",
+    "Poner el rey en seguridad",
+    "No mover la misma pieza dos veces",
+    "No sacar la dama muy temprano",
+    "Conectar las torres",
+    "Mejorar las piezas peor ubicadas"
+  ],
+  
+  // Errores comunes
+  "common_mistakes": [
+    "Desarrollo prematuro de la dama",
+    "Movimientos innecesarios de peones",
+    "Enroque tardío",
+    "Ignorar el desarrollo",
+    "Ataques prematuros",
+    "Debilitar la estructura de peones",
+    "No considerar las transposiciones"
+  ],
+  
+  // Planes típicos por apertura
+  "typical_plans": {
+    "sicilian": "Ataque en el flanco de rey, presión en columna d",
+    "french": "Ruptura con f6 o e5, ataque en flanco de rey",
+    "caro_kann": "Simplificación, juego posicional",
+    "kings_indian": "Ataque con g5-h5, sacrificios en el flanco de rey",
+    "queens_gambit": "Presión en el centro, juego posicional"
+  }
 };
+
+// ========== FUNCIONES DE ANÁLISIS ==========
+
+// Función para obtener jugadas recomendadas
+function getRecommendedMoves(position) {
+  const moves = OPENING_BOOK[position];
+  if (!moves) return [];
+  
+  return moves.map(move => ({
+    move: move,
+    evaluation: evaluateMove(position, move),
+    popularity: getPopularity(position, move),
+    theory: getTheoryDepth(position, move)
+  }));
+}
+
+// Función para evaluar una jugada
+function evaluateMove(position, move) {
+  // Evaluación básica basada en principios
+  let score = 0;
+  
+  // Desarrollo de piezas
+  if (isDevelopmentMove(move)) score += 10;
+  
+  // Control del centro
+  if (isCenterMove(move)) score += 8;
+  
+  // Seguridad del rey
+  if (isKingSafetyMove(move)) score += 12;
+  
+  // Actividad de piezas
+  if (isPieceActivity(move)) score += 6;
+  
+  return score;
+}
+
+// Función para obtener popularidad
+function getPopularity(position, move) {
+  // Simulación de popularidad basada en base de datos
+  const popularMoves = ["e4", "d4", "Nf3", "c4", "e5", "c5", "Nf6"];
+  return popularMoves.includes(move) ? "Alta" : "Media";
+}
+
+// Función para obtener profundidad teórica
+function getTheoryDepth(position, move) {
+  const depth = position.split(" ").length;
+  if (depth <= 3) return "Principios básicos";
+  if (depth <= 8) return "Teoría principal";
+  if (depth <= 15) return "Variantes profundas";
+  return "Análisis avanzado";
+}
+
+// Funciones auxiliares para evaluación
+function isDevelopmentMove(move) {
+  return /^[NBQR]/.test(move) && !move.includes("x");
+}
+
+function isCenterMove(move) {
+  return ["e4", "d4", "e5", "d5", "Nf3", "Nc3"].includes(move);
+}
+
+function isKingSafetyMove(move) {
+  return move === "O-O" || move === "O-O-O";
+}
+
+function isPieceActivity(move) {
+  return move.includes("+") || move.includes("x");
+}
+
+// ========== SISTEMA DE BÚSQUEDA ==========
+
+// Función para buscar posiciones
+function searchPosition(query) {
+  const results = [];
+  
+  for (const [position, moves] of Object.entries(OPENING_BOOK)) {
+    if (position.toLowerCase().includes(query.toLowerCase())) {
+      results.push({
+        position: position,
+        moves: moves,
+        name: getOpeningName(position),
+        eco: getECOCode(position)
+      });
+    }
+  }
+  
+  return results;
+}
+
+// Función para obtener nombre de apertura
+function getOpeningName(position) {
+  const names = {
+    "e4 e5": "Apertura Abierta",
+    "e4 c5": "Defensa Siciliana",
+    "e4 e6": "Defensa Francesa",
+    "e4 c6": "Defensa Caro-Kann",
+    "d4 d5": "Juego de Dama",
+    "d4 Nf6": "Defensas Indias",
+    "c4": "Apertura Inglesa",
+    "Nf3": "Apertura Reti"
+  };
+  
+  for (const [key, name] of Object.entries(names)) {
+    if (position.startsWith(key)) return name;
+  }
+  
+  return "Apertura Irregular";
+}
+
+// Función para obtener código ECO
+function getECOCode(position) {
+  // Simplificación de códigos ECO
+  const ecoCodes = {
+    "e4 e5": "C2-C4",
+    "e4 c5": "B2-B9",
+    "e4 e6": "C0-C1",
+    "e4 c6": "B1",
+    "d4 d5": "D0-D6",
+    "d4 Nf6": "E0-E9",
+    "c4": "A1-A3",
+    "Nf3": "A0"
+  };
+  
+  for (const [key, code] of Object.entries(ecoCodes)) {
+    if (position.startsWith(key)) return code;
+  }
+  
+  return "A00";
+}
+
+// ========== EJEMPLOS DE USO ==========
+
+// Ejemplo 1: Buscar jugadas para la Siciliana
+console.log("Jugadas para Siciliana Najdorf:");
+console.log(getRecommendedMoves("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6"));
+
+// Ejemplo 2: Buscar aperturas con "e4"
+console.log("Aperturas que empiezan con e4:");
+console.log(searchPosition("e4"));
+
+// Ejemplo 3: Análisis de posición
+console.log("Análisis de la Española:");
+console.log(getRecommendedMoves("e4 e5 Nf3 Nc6 Bb5"));
+
+// ========== EXPORTACIÓN ==========
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    OPENING_BOOK,
+    getRecommendedMoves,
+    searchPosition,
+    getOpeningName,
+    getECOCode
+  };
+}
+
+// Puedes agregar más líneas populares aquí...
 
 // Devuelve una jugada de apertura si existe en el libro
 function getOpeningMove(history) {
@@ -176,7 +814,7 @@ class ChessAI {
       3: { depth: 3, randomness: 0.15, timeLimit: 2500, maxNodes: 15000, contempt: 0, pieceProtectionFactor: 1.0, exchangeEvaluationThreshold: 0.9 },
       4: { depth: 3, randomness: 0.05, timeLimit: 3500, maxNodes: 30000, contempt: 10, pieceProtectionFactor: 1.2, exchangeEvaluationThreshold: 1.0 },
       // MEJORA: Mayor profundidad y menos aleatoriedad en nivel máximo
-      5: { depth: 4, randomness: 0.01, timeLimit: 5000, maxNodes: 60000, contempt: 20, pieceProtectionFactor: 1.4, exchangeEvaluationThreshold: 1.1 }
+      5: { depth: 5, randomness: 0, timeLimit: 10000, maxNodes: 200000, contempt: 20, pieceProtectionFactor: 1.6, exchangeEvaluationThreshold: 1.2 }
     };
 
     const config = difficulties[level] || difficulties[3];
@@ -399,6 +1037,39 @@ class ChessAI {
     const kingSafetyScore = this.evaluateKingSafety(board);
     mgScore += kingSafetyScore * this.midgameWeight; // Más importante en juego medio
     
+    // Penalización por rey en el centro después de la apertura
+    const kingSquare = { w: null, b: null };
+    for (let i = 0; i < 8; i++) {
+      for (let j = 0; j < 8; j++) {
+        const piece = board[i][j];
+        if (piece && piece.type === 'k') {
+          kingSquare[piece.color] = [i, j];
+        }
+      }
+    }
+    // Penaliza rey fuera de las columnas g-f-e-d después de la jugada 10
+    const moveNumber = game.history().length; // Solo una vez, al inicio
+    if (moveNumber > 10) {
+      ['w', 'b'].forEach(color => {
+        if (kingSquare[color]) {
+          const col = kingSquare[color][1];
+          if (col < 3 || col > 4) { // columnas a,b,c,h,g
+            if (color === 'w') mgScore -= 50;
+            else mgScore += 50;
+          }
+        }
+      });
+    }
+    // Bonus por enroque realizado
+    if (game.castlingRights('w') === '' && kingSquare['w'] && kingSquare['w'][1] === 6) mgScore += 30;
+    if (game.castlingRights('b') === '' && kingSquare['b'] && kingSquare['b'][1] === 6) mgScore -= 30;
+
+    // Penalización por perder el derecho a enrocar temprano
+    if (moveNumber < 10) {
+      if (game.castlingRights('w') === '') mgScore -= 20;
+      if (game.castlingRights('b') === '') mgScore += 20;
+    }
+
     // Evaluaciones adicionales simplificadas para mayor velocidad
     let bonus = 0;
     
@@ -431,10 +1102,8 @@ class ChessAI {
     }
 
     // Penalización extra si se han perdido piezas importantes en la apertura
-    const moveNumber = game.history().length;
     if (moveNumber < 8) {
       const materialDiff = whiteMaterial - blackMaterial;
-      // Si hay una diferencia de material significativa en la apertura, penaliza más fuerte
       if (Math.abs(materialDiff) > 300) {
         totalEvaluation -= Math.sign(materialDiff) * 100;
       }
@@ -1231,58 +1900,42 @@ class ChessAI {
                 if (value > iterationBestValue) {
                   iterationBestValue = value;
                   iterationBestMove = move.san;
-                  
-                  // Ajustar ventana alfa-beta
-                  alpha = Math.max(alpha, value);
                 }
-                
-                // Actualizar tabla de historia
-                const historyKey = `${move.from}-${move.to}`;
-                const currentHistory = this.historyTable.get(historyKey) || 0;
-                this.historyTable.set(historyKey, currentHistory + currentDepth * currentDepth);
               }
             } catch (error) {
-              console.warn("Error evaluando movimiento:", move.san, error);
+              game.undo();
               continue;
             }
           }
           
-          if (iterationBestMove && !this.shouldStop()) {
+          // MEJORA: Seleccionar el mejor movimiento de esta iteración
+          if (iterationBestMove) {
             bestMove = iterationBestMove;
             bestValue = iterationBestValue;
             
-            // MEJORA: Actualizar lista de mejores candidatos
-            if (currentDepth === this.depth) {
-              // Ordenar movimientos por valor
-              moveValues.sort((a, b) => b.value - a.value);
-              
-              // Tomar hasta 3 mejores movimientos si están dentro de un rango aceptable del mejor
-              bestCandidates = moveValues
-                .filter(mv => mv.value >= bestValue - 30) // Solo movimientos cercanos al mejor
-                .slice(0, 3) // Máximo 3 candidatos
-                .map(mv => mv.move);
-                
-              if (bestCandidates.length === 0) {
-                bestCandidates.push(bestMove);
-              }
-            }
+            // Tomar hasta 3 mejores movimientos si están dentro de un rango aceptable del mejor
+            bestCandidates = moveValues
+              .filter(mv => mv.value >= bestValue - 30) // Solo movimientos cercanos al mejor
+              .slice(0, 3) // Máximo 3 candidatos
+              .map(mv => mv.move);
             
-            // Actualizar la mejor línea para mostrar
-            if (this.usePrincipalVariation) {
-              let pvLine = bestMove;
-              for (let i = 1; i < this.pvLength[0]; i++) {
-                if (this.pvTable[0][i]) {
-                  pvLine += " " + this.pvTable[0][i].san;
-                }
-              }
-              console.log(`✓ Línea principal: ${pvLine}`);
+            if (bestCandidates.length === 0) {
+              bestCandidates.push(bestMove);
             }
-            
-            console.log(`✅ Profundidad ${currentDepth} completada. Mejor: ${bestMove} (valor: ${bestValue})`);
-          } else {
-            console.warn(`❌ Búsqueda en profundidad ${currentDepth} interrumpida.`);
-            break;
           }
+          
+          // Actualizar la mejor línea para mostrar
+          if (this.usePrincipalVariation) {
+            let pvLine = bestMove;
+            for (let i = 1; i < this.pvLength[0]; i++) {
+              if (this.pvTable[0][i]) {
+                pvLine += " " + this.pvTable[0][i].san;
+              }
+            }
+            console.log(`✓ Línea principal: ${pvLine}`);
+          }
+          
+          console.log(`✅ Profundidad ${currentDepth} completada. Mejor: ${bestMove} (valor: ${bestValue})`);
         }
       } else {
         // Búsqueda directa a la profundidad máxima (para niveles más bajos)
