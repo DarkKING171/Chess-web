@@ -1,7 +1,7 @@
 // src/engine/ChessAI.js - Motor de ajedrez mejorado y optimizado
 import { Chess } from 'chess.js';
 
-// Valores de las piezas optimizados (constantes para acceso rápido)
+// Valores de las piezas optimizados y más precisos (constantes para acceso rápido)
 const PIECE_VALUES = {
   p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000,
   P: -100, N: -320, B: -330, R: -500, Q: -900, K: -20000
@@ -113,6 +113,10 @@ class ChessAI {
     // Evaluación en dos fases para mayor eficiencia
     this.midgameWeight = 1;
     this.endgameWeight = 0;
+    
+    // MEJORA: Añadido para protección de piezas
+    this.pieceProtectionFactor = 1.2; // Factor para valorar más la protección de piezas propias
+    this.exchangeEvaluationThreshold = 0.9; // Umbral para considerar intercambios favorables
 
     // Inicialización de tablas para movimiento
     for (let i = 0; i < 10; i++) {
@@ -137,13 +141,14 @@ class ChessAI {
 
   // Configurar dificultad con parámetros más balanceados
   setDifficulty(level) {
-    // Configuración optimizada para cada nivel
+    // MEJORA: Configuración optimizada para mayor solidez en niveles altos
     const difficulties = {
-      1: { depth: 2, randomness: 0.4, timeLimit: 800, maxNodes: 3000, contempt: -50 },
-      2: { depth: 2, randomness: 0.25, timeLimit: 1500, maxNodes: 8000, contempt: -20 },
-      3: { depth: 3, randomness: 0.15, timeLimit: 2500, maxNodes: 15000, contempt: 0 },
-      4: { depth: 3, randomness: 0.08, timeLimit: 3500, maxNodes: 25000, contempt: 10 },
-      5: { depth: 4, randomness: 0.03, timeLimit: 5000, maxNodes: 50000, contempt: 20 }
+      1: { depth: 2, randomness: 0.4, timeLimit: 800, maxNodes: 3000, contempt: -50, pieceProtectionFactor: 0.8, exchangeEvaluationThreshold: 0.7 },
+      2: { depth: 2, randomness: 0.25, timeLimit: 1500, maxNodes: 8000, contempt: -20, pieceProtectionFactor: 0.9, exchangeEvaluationThreshold: 0.8 },
+      3: { depth: 3, randomness: 0.15, timeLimit: 2500, maxNodes: 15000, contempt: 0, pieceProtectionFactor: 1.0, exchangeEvaluationThreshold: 0.9 },
+      4: { depth: 3, randomness: 0.05, timeLimit: 3500, maxNodes: 30000, contempt: 10, pieceProtectionFactor: 1.2, exchangeEvaluationThreshold: 1.0 },
+      // MEJORA: Mayor profundidad y menos aleatoriedad en nivel máximo
+      5: { depth: 4, randomness: 0.01, timeLimit: 5000, maxNodes: 60000, contempt: 20, pieceProtectionFactor: 1.4, exchangeEvaluationThreshold: 1.1 }
     };
 
     const config = difficulties[level] || difficulties[3];
@@ -152,13 +157,17 @@ class ChessAI {
     this.timeLimit = config.timeLimit;
     this.maxNodes = config.maxNodes;
     this.contempt = config.contempt;
+    
+    // MEJORA: Factores de protección de piezas
+    this.pieceProtectionFactor = config.pieceProtectionFactor;
+    this.exchangeEvaluationThreshold = config.exchangeEvaluationThreshold;
 
     // Configuración avanzada para niveles superiores
     this.useNullMovePruning = level >= 3;
-    this.useAspiration = level >= 4;
+    this.useAspiration = level >= 3; // MEJORA: Activar aspiración desde nivel 3
     this.useIterativeDeepening = level >= 2;
 
-    console.log(`🎯 Dificultad ${level}: profundidad=${this.depth}, tiempo=${this.timeLimit}ms, contempt=${this.contempt}`);
+    console.log(`🎯 Dificultad ${level}: profundidad=${this.depth}, tiempo=${this.timeLimit}ms, contempt=${this.contempt}, protección=${this.pieceProtectionFactor}`);
   }
 
   // Verificar condiciones de parada optimizadas (se llama menos veces)
@@ -171,6 +180,41 @@ class ChessAI {
     const nodesExceeded = this.nodesEvaluated > this.maxNodes;
     
     return timeExceeded || nodesExceeded;
+  }
+
+  // MEJORA: Nueva función para evaluar si un intercambio es favorable
+  evaluateExchange(game, move) {
+    // No evaluar intercambios para movimientos que no son capturas
+    if (!move.captured) return 0;
+    
+    const capturedValue = Math.abs(PIECE_VALUES[move.captured]);
+    const attackerValue = Math.abs(PIECE_VALUES[move.piece]);
+    
+    // Valor base del intercambio
+    let exchangeValue = capturedValue - attackerValue;
+    
+    // Verificar si la pieza atacante queda vulnerable después del movimiento
+    try {
+      // Simular el movimiento
+      game.move(move);
+      
+      // Comprobar si la casilla destino está bajo ataque después del movimiento
+      const isTargetAttacked = game.isAttacked(move.to, game.turn());
+      
+      // Si la casilla está bajo ataque, calcular el valor de la pieza potencialmente perdida
+      if (isTargetAttacked) {
+        // La pieza en peligro es la que acabamos de mover
+        exchangeValue -= attackerValue;
+      }
+      
+      // Deshacer el movimiento
+      game.undo();
+      
+      return exchangeValue;
+    } catch (error) {
+      // En caso de error, retornar un valor conservador
+      return -attackerValue;
+    }
   }
 
   // Evaluación de la posición optimizada para mayor velocidad
@@ -195,12 +239,26 @@ class ChessAI {
     let egScore = 0;  // Puntuación de final de juego
     let totalMaterial = 0;
     
+    // MEJORA: Contadores de material para cada color
+    let whiteMaterial = 0;
+    let blackMaterial = 0;
+    
     // Precálculo de material total para fase de juego
     for (let i = 0; i < 8; i++) {
       for (let j = 0; j < 8; j++) {
         const piece = board[i][j];
-        if (piece && piece.type !== 'k' && piece.type !== 'p') {
-          totalMaterial += Math.abs(PIECE_VALUES[piece.type]);
+        if (piece && piece.type !== 'k') {
+          const pieceValue = Math.abs(PIECE_VALUES[piece.type]);
+          if (piece.type !== 'p') {
+            totalMaterial += pieceValue;
+          }
+          
+          // MEJORA: Suma material por color
+          if (piece.color === 'w') {
+            whiteMaterial += pieceValue;
+          } else {
+            blackMaterial += pieceValue;
+          }
         }
       }
     }
@@ -209,6 +267,10 @@ class ChessAI {
     const phase = Math.min(256, totalMaterial * 256 / 6600);
     this.midgameWeight = phase / 256;
     this.endgameWeight = 1 - this.midgameWeight;
+    
+    // MEJORA: Determinar si hay ventaja material significativa
+    const materialAdvantage = whiteMaterial - blackMaterial;
+    const significantAdvantage = Math.abs(materialAdvantage) > 300; // Más de un peón y medio
     
     // Evaluación de material y posición en una sola pasada
     for (let i = 0; i < 8; i++) {
@@ -237,18 +299,63 @@ class ChessAI {
         // Factor según color
         const factor = piece.color === 'b' ? 1 : -1;
         
+        // MEJORA: Evaluar protección de piezas valiosas
+        let protectionBonus = 0;
+        if ((piece.type === 'q' || piece.type === 'r') && this.pieceProtectionFactor > 1.0) {
+          // Evaluar si la pieza está protegida
+          const square = String.fromCharCode(97 + j) + (8 - i);
+          
+          try {
+            // Crear un estado temporal del tablero
+            const tempGame = new Chess(game.fen());
+            
+            // Determinar si la pieza está defendida por una pieza de menor valor
+            const isProtected = tempGame.moves({verbose: true}).some(move => {
+              return move.to === square && 
+                     move.color === piece.color && 
+                     Math.abs(PIECE_VALUES[move.piece]) < Math.abs(pieceValue);
+            });
+            
+            if (isProtected) {
+              // Bonus por tener piezas valiosas protegidas
+              protectionBonus = Math.abs(pieceValue) * 0.05;
+            } else if (significantAdvantage) {
+              // Si hay ventaja material, penalizar piezas valiosas desprotegidas
+              const hasAdvantage = (piece.color === 'w' && materialAdvantage > 0) || 
+                                  (piece.color === 'b' && materialAdvantage < 0);
+              if (hasAdvantage) {
+                protectionBonus = -Math.abs(pieceValue) * 0.03;
+              }
+            }
+          } catch (error) {
+            // Ignorar errores de análisis
+          }
+          
+          // Aplicar el factor de color
+          protectionBonus *= factor;
+        }
+        
         // Aplicar valores a las puntuaciones de fase
-        mgScore += factor * (Math.abs(pieceValue) + mgPosValue);
-        egScore += factor * (Math.abs(pieceValue) + egPosValue);
+        mgScore += factor * (Math.abs(pieceValue) + mgPosValue) + protectionBonus;
+        egScore += factor * (Math.abs(pieceValue) + egPosValue) + protectionBonus;
       }
     }
 
+    // MEJORA: Añadir evaluación de estructura de peones
+    const pawnStructureScore = this.evaluatePawnStructure(board);
+    mgScore += pawnStructureScore;
+    egScore += pawnStructureScore;
+    
+    // MEJORA: Añadir evaluación de seguridad del rey
+    const kingSafetyScore = this.evaluateKingSafety(board);
+    mgScore += kingSafetyScore * this.midgameWeight; // Más importante en juego medio
+    
     // Evaluaciones adicionales simplificadas para mayor velocidad
     let bonus = 0;
     
     // Bonificación por jaque
     if (game.inCheck()) {
-      bonus += game.turn() === 'b' ? -50 : 50;
+      bonus += game.turn() === 'b' ? -70 : 70; // MEJORA: Mayor valor al jaque
     }
     
     // Movilidad - cálculo optimizado
@@ -261,6 +368,10 @@ class ChessAI {
       CENTRAL_SQUARES.some(square => move.includes(square))
     ).length;
     bonus += game.turn() === 'b' ? centralControl * 5 : -centralControl * 5;
+    
+    // MEJORA: Penalizar posiciones donde piezas importantes están bajo amenaza
+    const threatPenalty = this.evaluateThreats(game);
+    bonus += threatPenalty;
 
     // Interpolación entre fases de juego
     let totalEvaluation = this.midgameWeight * mgScore + this.endgameWeight * egScore + bonus;
@@ -271,11 +382,57 @@ class ChessAI {
     }
 
     // Almacenar en tabla de transposición con control de tamaño
-    if (this.transpositionTable.size < 100000) {  // Incrementado para mejor rendimiento
+    if (this.transpositionTable.size < 100000) {
       this.transpositionTable.set(key, totalEvaluation);
     }
 
     return totalEvaluation;
+  }
+  
+  // MEJORA: Nueva función para evaluar amenazas a piezas valiosas
+  evaluateThreats(game) {
+    let threatScore = 0;
+    const isWhiteTurn = game.turn() === 'w';
+    
+    try {
+      // Obtener todas las piezas amenazadas
+      const board = game.board();
+      
+      // Para cada pieza en el tablero
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          const piece = board[i][j];
+          if (!piece) continue;
+          
+          // Solo nos interesan amenazas a piezas valiosas (dama, torre, alfil, caballo)
+          if (piece.type !== 'q' && piece.type !== 'r' && piece.type !== 'b' && piece.type !== 'n') continue;
+          
+          const square = String.fromCharCode(97 + j) + (8 - i);
+          const pieceColor = piece.color;
+          const isPlayerPiece = (pieceColor === 'w') === isWhiteTurn;
+          
+          // Verificar si la pieza está amenazada
+          const isAttacked = game.isAttacked(square, pieceColor === 'w' ? 'b' : 'w');
+          
+          if (isAttacked) {
+            const pieceValue = Math.abs(PIECE_VALUES[piece.type]);
+            
+            // Penalizar más fuertemente tener piezas propias amenazadas en nivel alto
+            if (isPlayerPiece) {
+              // Penalizar que nuestras piezas estén amenazadas
+              threatScore -= pieceValue * 0.1 * this.pieceProtectionFactor;
+            } else {
+              // Bonificar amenazar piezas enemigas, pero con menos peso
+              threatScore += pieceValue * 0.05;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Ignorar errores en el análisis de amenazas
+    }
+    
+    return threatScore;
   }
 
   // Detección de fase de juego optimizada
@@ -519,7 +676,8 @@ class ChessAI {
 
     // Comprobación de profundidad cero
     if (depth <= 0) {
-      return this.quiescenceSearch(game, alpha, beta, maximizingPlayer, 3);
+      // MEJORA: Aumentar profundidad de búsqueda quiescente para mayor precisión
+      return this.quiescenceSearch(game, alpha, beta, maximizingPlayer, 4);
     }
     
     // Movimiento nulo - poderosa técnica de poda
@@ -576,6 +734,18 @@ class ChessAI {
 
       for (let i = 0; i < orderedMoves.length && !this.shouldStop(); i++) {
         const move = orderedMoves[i];
+        
+        // MEJORA: Evaluar intercambios para detectar movimientos que regalan piezas
+        if (move.captured && this.pieceProtectionFactor > 1.0 && depth >= 3) {
+          const exchangeValue = this.evaluateExchange(game, move);
+          // Si el intercambio es claramente desfavorable, considerar saltarlo en niveles altos
+          if (exchangeValue < -this.exchangeEvaluationThreshold * Math.abs(PIECE_VALUES[move.captured])) {
+            // Solo aplicar a niveles altos de dificultad
+            if (this.depth >= 4 && i > 2) {  // No aplicar a los primeros movimientos para evitar bugs
+              continue; // Saltar este movimiento que regala material
+            }
+          }
+        }
         
         try {
           const moveResult = game.move(move);
@@ -648,6 +818,18 @@ class ChessAI {
       
       for (let i = 0; i < orderedMoves.length && !this.shouldStop(); i++) {
         const move = orderedMoves[i];
+
+        // MEJORA: Evaluar intercambios para detectar movimientos que regalan piezas
+        if (move.captured && this.pieceProtectionFactor > 1.0 && depth >= 3) {
+          const exchangeValue = this.evaluateExchange(game, move);
+          // Si el intercambio es claramente desfavorable, considerar saltarlo en niveles altos
+          if (exchangeValue < -this.exchangeEvaluationThreshold * Math.abs(PIECE_VALUES[move.captured])) {
+            // Solo aplicar a niveles altos de dificultad
+            if (this.depth >= 4 && i > 2) {  // No aplicar a los primeros movimientos para evitar bugs
+              continue; // Saltar este movimiento que regala material
+            }
+          }
+        }
 
         try {
           const moveResult = game.move(move);
@@ -732,16 +914,22 @@ class ChessAI {
       beta = Math.min(beta, standPat);
     }
 
-    // Solo evaluar capturas para estabilidad
+    // MEJORA: Incluir jaques además de capturas para búsqueda quiescente más precisa
     const moves = game.moves({ verbose: true });
-    const captures = moves.filter(move => move.captured || move.promotion);
+    const tacticalMoves = moves.filter(move => 
+      move.captured || move.promotion || move.san.includes('+')
+    );
 
-    if (captures.length === 0) {
+    if (tacticalMoves.length === 0) {
       return standPat;
     }
 
-    // Ordenamiento optimizado solo para capturas
-    captures.sort((a, b) => {
+    // Ordenamiento optimizado para movimientos tácticos
+    tacticalMoves.sort((a, b) => {
+      // Priorizar jaques
+      const aCheck = a.san.includes('+') ? 1000 : 0;
+      const bCheck = b.san.includes('+') ? 1000 : 0;
+      
       // MVV-LVA: Most Valuable Victim - Least Valuable Attacker
       const aValue = a.captured ? Math.abs(PIECE_VALUES[a.captured]) : 0;
       const bValue = b.captured ? Math.abs(PIECE_VALUES[b.captured]) : 0;
@@ -749,14 +937,31 @@ class ChessAI {
       const bAttacker = Math.abs(PIECE_VALUES[b.piece]);
       
       // Capturar piezas valiosas con piezas menos valiosas primero
-      return (bValue - bAttacker) - (aValue - aAttacker);
+      return (bValue + bCheck - bAttacker / 100) - (aValue + aCheck - aAttacker / 100);
     });
+
+    // MEJORA: Evaluar intercambios antes de la búsqueda recursiva
+    if (this.pieceProtectionFactor > 1.0) {
+      // Filtrar movimientos que claramente regalan material en niveles altos
+      const filteredMoves = tacticalMoves.filter(move => {
+        if (!move.captured || move.san.includes('+')) return true; // Mantener jaques y no capturas
+        
+        const exchangeValue = this.evaluateExchange(game, move);
+        return exchangeValue >= -Math.abs(PIECE_VALUES[move.piece]) * 0.8; // Solo filtrar intercambios muy desfavorables
+      });
+      
+      // Si tenemos movimientos filtrados, usarlos; de lo contrario, mantener los originales
+      if (filteredMoves.length > 0) {
+        tacticalMoves.length = 0;
+        filteredMoves.forEach(m => tacticalMoves.push(m));
+      }
+    }
 
     // Evaluación recursiva
     if (maximizingPlayer) {
       let maxEval = alpha;
       
-      for (const move of captures) {
+      for (const move of tacticalMoves) {
         if (this.shouldStop()) break;
         
         try {
@@ -776,7 +981,7 @@ class ChessAI {
     } else {
       let minEval = beta;
       
-      for (const move of captures) {
+      for (const move of tacticalMoves) {
         if (this.shouldStop()) break;
         
         try {
@@ -818,7 +1023,23 @@ class ChessAI {
       else if (move.captured) {
         const capturedValue = Math.abs(PIECE_VALUES[move.captured]);
         const attackerValue = Math.abs(PIECE_VALUES[move.piece]);
-        score = 10000 + capturedValue - attackerValue / 100;
+        
+        // MEJORA: Evaluar intercambios para mejorar ordenamiento
+        let exchangeScore = capturedValue - attackerValue / 100;
+        
+        // En niveles altos, evaluar si el intercambio es seguro
+        if (this.pieceProtectionFactor > 1.0 && currentDepth >= 3) {
+          const exchangeValue = this.evaluateExchange(game, move);
+          if (exchangeValue < 0) {
+            // Penalizar intercambios negativos, pero mantener cerca del principio
+            exchangeScore = Math.max(0, exchangeScore) + exchangeValue * 2;
+          } else {
+            // Premiar intercambios positivos
+            exchangeScore += exchangeValue;
+          }
+        }
+        
+        score = 10000 + exchangeScore;
       }
       // Promociones
       else if (move.promotion) {
@@ -844,8 +1065,18 @@ class ChessAI {
         score += 100;
       }
       
-      if (['n', 'b'].includes(move.piece) && !['1', '8'].includes(move.to[1]) && !['a', 'h'].includes(move.to[0])) {
-        score += 50;
+      // MEJORA: Desarrollo de piezas en aperturas
+      if (['n', 'b'].includes(move.piece)) {
+        if (!['1', '8'].includes(move.to[1]) && !['a', 'h'].includes(move.to[0])) {
+          score += 50; // Desarrollo hacia centro
+        }
+        
+        // Penalizar movimientos repetidos de la misma pieza en etapa temprana
+        const fromRank = move.from[1];
+        const pieceStartingRank = move.piece.toUpperCase() === move.piece ? '1' : '8';
+        if (fromRank !== pieceStartingRank) {
+          score -= 25; // Ya se movió esta pieza antes
+        }
       }
       
       scoredMoves[i] = { move, score };
@@ -888,6 +1119,9 @@ class ChessAI {
       let bestMove = availableMoves[0].san;
       let bestValue = -Infinity;
       
+      // MEJORA: Array de mejores candidatos para reducir "regalo" de piezas aleatorio
+      let bestCandidates = [];
+      
       // Profundización iterativa para mayor eficiencia
       if (this.useIterativeDeepening) {
         for (let currentDepth = 1; currentDepth <= this.depth && !this.shouldStop(); currentDepth++) {
@@ -907,6 +1141,9 @@ class ChessAI {
           // Ordenamiento optimizado para esta iteración
           const orderedMoves = this.orderMoves(game, availableMoves, 0, currentDepth);
           
+          // MEJORA: Almacenar valores de todos los movimientos para la selección final
+          const moveValues = [];
+          
           for (let i = 0; i < orderedMoves.length && !this.shouldStop(); i++) {
             const move = orderedMoves[i];
             
@@ -916,6 +1153,9 @@ class ChessAI {
                 // Búsqueda completa en este movimiento
                 const value = this.minimax(game, currentDepth - 1, alpha, beta, false, 1);
                 game.undo();
+                
+                // MEJORA: Almacenar el valor de este movimiento
+                moveValues.push({ move: move.san, value });
                 
                 if (value > iterationBestValue) {
                   iterationBestValue = value;
@@ -940,6 +1180,22 @@ class ChessAI {
             bestMove = iterationBestMove;
             bestValue = iterationBestValue;
             
+            // MEJORA: Actualizar lista de mejores candidatos
+            if (currentDepth === this.depth) {
+              // Ordenar movimientos por valor
+              moveValues.sort((a, b) => b.value - a.value);
+              
+              // Tomar hasta 3 mejores movimientos si están dentro de un rango aceptable del mejor
+              bestCandidates = moveValues
+                .filter(mv => mv.value >= bestValue - 30) // Solo movimientos cercanos al mejor
+                .slice(0, 3) // Máximo 3 candidatos
+                .map(mv => mv.move);
+                
+              if (bestCandidates.length === 0) {
+                bestCandidates.push(bestMove);
+              }
+            }
+            
             // Actualizar la mejor línea para mostrar
             if (this.usePrincipalVariation) {
               let pvLine = bestMove;
@@ -960,6 +1216,7 @@ class ChessAI {
       } else {
         // Búsqueda directa a la profundidad máxima (para niveles más bajos)
         const orderedMoves = this.orderMoves(game, availableMoves, 0, this.depth);
+        const moveValues = [];
         
         for (let i = 0; i < Math.min(orderedMoves.length, 25) && !this.shouldStop(); i++) {
           const move = orderedMoves[i];
@@ -969,6 +1226,8 @@ class ChessAI {
             if (moveResult) {
               const value = this.minimax(game, this.depth - 1, -Infinity, Infinity, false, 0);
               game.undo();
+              
+              moveValues.push({ move: move.san, value });
               
               if (value > bestValue) {
                 bestValue = value;
@@ -980,13 +1239,24 @@ class ChessAI {
             continue;
           }
         }
+        
+        // Seleccionar candidatos
+        moveValues.sort((a, b) => b.value - a.value);
+        bestCandidates = moveValues
+          .filter(mv => mv.value >= bestValue - 30)
+          .slice(0, 3)
+          .map(mv => mv.move);
+          
+        if (bestCandidates.length === 0) {
+          bestCandidates.push(bestMove);
+        }
       }
 
-      // Aleatoriedad para los niveles más bajos
-      if (Math.random() < this.randomness) {
-        const randomIndex = Math.floor(Math.random() * availableMoves.length);
-        bestMove = availableMoves[randomIndex].san;
-        console.warn(`🎲 Movimiento aleatorio: ${bestMove}`);
+      // MEJORA: Aleatoriedad controlada para niveles más bajos que no regale piezas
+      if (Math.random() < this.randomness && bestCandidates.length > 0) {
+        const randomIndex = Math.floor(Math.random() * bestCandidates.length);
+        bestMove = bestCandidates[randomIndex];
+        console.warn(`🎲 Selección entre mejores candidatos: ${bestMove}`);
       }
 
       const timeTaken = Date.now() - this.startTime;
@@ -997,9 +1267,7 @@ class ChessAI {
       return bestMove;
     } catch (error) {
       console.error("Error en getBestMove:", error);
-      // Aquí está el problema corregido: usar la variable "availableMoves" que está definida en este método
-      // en lugar de "possibleMoves" que no está definida.
-      return this.availableMoves && this.availableMoves.length > 0 ? this.availableMoves[0].san : null;
+      return availableMoves && availableMoves.length > 0 ? availableMoves[0].san : null;
     }
   }
 
@@ -1015,6 +1283,7 @@ class ChessAI {
       timeLimit: this.timeLimit || 5000,
       randomness: this.randomness || 0.1,
       contempt: this.contempt || 0,
+      pieceProtectionFactor: this.pieceProtectionFactor || 1.0,
       nodesPerSecond: nodesPerSecond
     };
   }

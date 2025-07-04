@@ -142,80 +142,78 @@ function App() {
     }
   }, []);
 
- // Actualización para la función requestAIMove en app.js
-// Reemplaza la función requestAIMove existente con esta versión:
-
-const requestAIMove = useCallback(async (currentGame) => {
-  try {
-    console.log("🤖 IA calculando movimiento...");
-    setError(null); // Limpiar errores previos
-    
-    const startTime = Date.now();
-    
-    // Usar Promise.race para implementar timeout
-    const aiMovePromise = new Promise((resolve, reject) => {
-      try {
-        const bestMove = chessAI.current.getBestMove(currentGame);
-        resolve(bestMove);
-      } catch (error) {
-        reject(error);
+  // Actualización para la función requestAIMove en app.js
+  const requestAIMove = useCallback(async (currentGame) => {
+    try {
+      console.log("🤖 IA calculando movimiento...");
+      setError(null); // Limpiar errores previos
+      
+      const startTime = Date.now();
+      
+      // Usar Promise.race para implementar timeout
+      const aiMovePromise = new Promise((resolve, reject) => {
+        try {
+          const bestMove = chessAI.current.getBestMove(currentGame);
+          resolve(bestMove);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout')), 10000); // 10 segundos máximo
+      });
+      
+      const bestMove = await Promise.race([aiMovePromise, timeoutPromise]);
+      
+      if (!bestMove) {
+        console.warn("⚠️ IA no encontró movimiento válido");
+        if (!makeEmergencyMove()) {
+          setGameStatus(GAME_STATUS.GAME_OVER);
+        }
+        return;
       }
-    });
-    
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Timeout')), 10000); // 10 segundos máximo
-    });
-    
-    const bestMove = await Promise.race([aiMovePromise, timeoutPromise]);
-    
-    if (!bestMove) {
-      console.warn("⚠️ IA no encontró movimiento válido");
+
+      // Asegurar tiempo mínimo de "pensamiento" para UX
+      const thinkingTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, AI_CONFIG.THINKING_TIME - thinkingTime);
+
+      setTimeout(() => {
+        console.log(`🎯 IA eligió: ${bestMove}`);
+        
+        // Obtener estadísticas del motor
+        const stats = chessAI.current.getStats();
+        setAiStats(stats);
+        
+        // Ejecutar movimiento
+        const success = makeMove(bestMove);
+        if (!success) {
+          console.error("❌ Movimiento de IA falló, usando emergencia");
+          makeEmergencyMove();
+        }
+        
+        // Limpiar caché si es necesario
+        chessAI.current.clearCache();
+      }, remainingTime);
+
+    } catch (error) {
+      console.error("Error en IA:", error);
+      
+      if (error.message === 'Timeout') {
+        setError("La IA tardó demasiado en responder");
+      } else {
+        setError("Error del motor de ajedrez");
+      }
+      
+      // Reiniciar el motor en caso de error crítico
+      chessAI.current.reset();
+      
+      // Usar movimiento de emergencia
       if (!makeEmergencyMove()) {
         setGameStatus(GAME_STATUS.GAME_OVER);
       }
-      return;
     }
-
-    // Asegurar tiempo mínimo de "pensamiento" para UX
-    const thinkingTime = Date.now() - startTime;
-    const remainingTime = Math.max(0, AI_CONFIG.THINKING_TIME - thinkingTime);
-
-    setTimeout(() => {
-      console.log(`🎯 IA eligió: ${bestMove}`);
-      
-      // Obtener estadísticas del motor
-      const stats = chessAI.current.getStats();
-      setAiStats(stats);
-      
-      // Ejecutar movimiento
-      const success = makeMove(bestMove);
-      if (!success) {
-        console.error("❌ Movimiento de IA falló, usando emergencia");
-        makeEmergencyMove();
-      }
-      
-      // Limpiar caché si es necesario
-      chessAI.current.clearCache();
-    }, remainingTime);
-
-  } catch (error) {
-    console.error("Error en IA:", error);
-    
-    if (error.message === 'Timeout') {
-      setError("La IA tardó demasiado en responder");
-    } else {
-      setError("Error del motor de ajedrez");
-    }
-    
-    // Reiniciar el motor en caso de error crítico
-    chessAI.current.reset();
-    
-    // Usar movimiento de emergencia
-    if (!makeEmergencyMove()) {
-      setGameStatus(GAME_STATUS.GAME_OVER);
-    }
-  }
-}, [makeEmergencyMove, makeMove]);
+  }, [makeEmergencyMove, makeMove]);
 
   // Inicialización del motor de IA
   useEffect(() => {
