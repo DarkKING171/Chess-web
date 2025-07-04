@@ -194,7 +194,7 @@ function App() {
   }, []);
 
   // Función mejorada para mover piezas
-  const makeMove = useCallback((move, playSound = true) => {
+  const makeMove = useCallback((move, playSoundEnabled = true) => {
     try {
       const newGame = new Chess(gameRef.current.fen());
       const result = newGame.move(move);
@@ -205,7 +205,7 @@ function App() {
       }
 
       // Reproducir sonido apropiado
-      if (playSound && soundEnabled) {
+      if (playSoundEnabled && soundEnabled) {
         if (result.san.includes('#')) {
           playSound(SOUND_EFFECTS.CHECKMATE);
         } else if (result.san.includes('+')) {

@@ -290,7 +290,12 @@ class ChessAI {
         }
       }
     }
-    
+
+    // --- ARREGLO: Definir materialAdvantage y significantAdvantage ---
+    const materialAdvantage = whiteMaterial - blackMaterial;
+    const significantAdvantage = Math.abs(materialAdvantage) > 200;
+    // -----------------------------------------------------------------
+
     // Determinación de fase de juego (0-256)
     const phase = Math.min(256, totalMaterial * 256 / 6600);
     this.midgameWeight = phase / 256;
@@ -825,6 +830,7 @@ class ChessAI {
               maxEval = evaluation;
               bestMove = move;
               
+
               // Actualizar tabla de variante principal
               if (this.usePrincipalVariation) {
                 this.pvTable[ply][ply] = move;
@@ -1147,6 +1153,7 @@ class ChessAI {
 
   // Búsqueda del mejor movimiento optimizada
   getBestMove(game) {
+    let availableMoves = [];
     try {
       this.nodesEvaluated = 0;
       this.startTime = Date.now();
@@ -1158,7 +1165,7 @@ class ChessAI {
         }
       }
 
-      const availableMoves = game.moves({ verbose: true });
+      availableMoves = game.moves({ verbose: true });
       if (availableMoves.length === 0) {
         console.warn("No hay movimientos disponibles");
         return null;
@@ -1169,7 +1176,7 @@ class ChessAI {
       const openingMove = getOpeningMove(history);
       if (openingMove) {
         console.warn(`📖 Jugada de apertura seleccionada: ${openingMove}`);
-        return openingMove;
+        return { move: openingMove, evaluation: 0 };
       }
       // --- FIN: CONSULTA DE APERTURA ---
 
@@ -1338,7 +1345,7 @@ class ChessAI {
       return { move: bestMove, evaluation: bestValue };
     } catch (error) {
       console.error("Error en getBestMove:", error);
-      return availableMoves && availableMoves.length > 0 ? availableMoves[0].san : null;
+      return null;
     }
   }
 
