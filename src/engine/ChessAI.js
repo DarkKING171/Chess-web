@@ -86,6 +86,34 @@ const CENTRAL_SQUARES = ['d4', 'd5', 'e4', 'e5'];
 const FILE_MAP = {a: 0, b: 1, c: 2, d: 3, e: 4, f: 5, g: 6, h: 7};
 const RANK_MAP = {1: 7, 2: 6, 3: 5, 4: 4, 5: 3, 6: 2, 7: 1, 8: 0};
 
+// Tabla de aperturas básicas (eco: [jugadas en SAN])
+const OPENING_BOOK = {
+  // Aperturas blancas
+  "": ["e4", "d4", "Nf3", "c4"], // Primer movimiento
+  "e4": ["e5", "c5", "e6", "c6", "d6"], // Respuestas negras a 1.e4
+  "d4": ["d5", "Nf6", "e6", "g6"], // Respuestas negras a 1.d4
+  "e4 e5": ["Nf3", "Nc3"], // 2. Cf3 o Cc3
+  "e4 c5": ["Nf3", "Nc3", "d4"], // Siciliana
+  "d4 d5": ["c4", "Nf3"], // Gambito de dama o desarrollo
+  "d4 Nf6": ["c4", "Nf3", "g3"], // India de rey, Nimzoindia, etc.
+  "e4 e5 Nf3": ["Nc6", "Nf6"], // Defensa Petrov, desarrollo clásico
+  "e4 e5 Nf3 Nc6": ["Bb5", "Bc4", "d4"], // Española, italiana, centro
+  "d4 Nf6 c4": ["e6", "g6", "d5"], // Nimzoindia, India de rey, defensa ortodoxa
+
+  // Puedes agregar más líneas populares aquí...
+};
+
+// Devuelve una jugada de apertura si existe en el libro
+function getOpeningMove(history) {
+  const moves = history.map(m => m.san).join(" ");
+  if (OPENING_BOOK[moves]) {
+    const options = OPENING_BOOK[moves];
+    // Selecciona aleatoriamente entre las mejores opciones
+    return options[Math.floor(Math.random() * options.length)];
+  }
+  return null;
+}
+
 class ChessAI {
   constructor(depth = 3) {
     // Valores núcleo para el algoritmo
@@ -267,10 +295,26 @@ class ChessAI {
     const phase = Math.min(256, totalMaterial * 256 / 6600);
     this.midgameWeight = phase / 256;
     this.endgameWeight = 1 - this.midgameWeight;
-    
-    // MEJORA: Determinar si hay ventaja material significativa
-    const materialAdvantage = whiteMaterial - blackMaterial;
-    const significantAdvantage = Math.abs(materialAdvantage) > 300; // Más de un peón y medio
+
+    // MEJORA: Bonificación por pareja de alfiles
+    let whiteBishops = 0, blackBishops = 0;
+    for (let i = 0; i < 8; i++) {
+      for (let j = 0; j < 8; j++) {
+        const piece = board[i][j];
+        if (piece && piece.type === 'b') {
+          if (piece.color === 'w') whiteBishops++;
+          else blackBishops++;
+        }
+      }
+    }
+    if (whiteBishops >= 2) {
+      mgScore -= 35; // Bonificación para blancas
+      egScore -= 35;
+    }
+    if (blackBishops >= 2) {
+      mgScore += 35; // Bonificación para negras
+      egScore += 35;
+    }
     
     // Evaluación de material y posición en una sola pasada
     for (let i = 0; i < 8; i++) {
@@ -381,6 +425,16 @@ class ChessAI {
       totalEvaluation += this.contempt;
     }
 
+    // Penalización extra si se han perdido piezas importantes en la apertura
+    const moveNumber = game.history().length;
+    if (moveNumber < 8) {
+      const materialDiff = whiteMaterial - blackMaterial;
+      // Si hay una diferencia de material significativa en la apertura, penaliza más fuerte
+      if (Math.abs(materialDiff) > 300) {
+        totalEvaluation -= Math.sign(materialDiff) * 100;
+      }
+    }
+
     // Almacenar en tabla de transposición con control de tamaño
     if (this.transpositionTable.size < 100000) {
       this.transpositionTable.set(key, totalEvaluation);
@@ -474,7 +528,7 @@ class ChessAI {
     const mobilityBonus = moves.length * (isEndgame ? 3 : 2);
     bonus += game.turn() === 'b' ? mobilityBonus : -mobilityBonus;
     
-    // Simplicación: control central usando array precalculado
+    // Simplicidad: control central usando array precalculado
     const centralControl = moves.filter(move => 
       CENTRAL_SQUARES.some(square => move.includes(square))
     ).length;
@@ -855,6 +909,7 @@ class ChessAI {
               minEval = evaluation;
               bestMove = move;
               
+
               // Actualizar tabla de variante principal
               if (this.usePrincipalVariation) {
                 this.pvTable[ply][ply] = move;
@@ -1095,7 +1150,7 @@ class ChessAI {
     try {
       this.nodesEvaluated = 0;
       this.startTime = Date.now();
-      
+
       // Limpiar tablas de variante principal
       if (this.usePrincipalVariation) {
         for (let i = 0; i < 64; i++) {
@@ -1108,7 +1163,16 @@ class ChessAI {
         console.warn("No hay movimientos disponibles");
         return null;
       }
-      
+
+      // --- INICIO: CONSULTA DE APERTURA ---
+      const history = game.history({ verbose: true });
+      const openingMove = getOpeningMove(history);
+      if (openingMove) {
+        console.warn(`📖 Jugada de apertura seleccionada: ${openingMove}`);
+        return openingMove;
+      }
+      // --- FIN: CONSULTA DE APERTURA ---
+
       // Si solo hay un movimiento, devolverlo inmediatamente
       if (availableMoves.length === 1) {
         return availableMoves[0].san;
@@ -1252,8 +1316,15 @@ class ChessAI {
         }
       }
 
-      // MEJORA: Aleatoriedad controlada para niveles más bajos que no regale piezas
-      if (Math.random() < this.randomness && bestCandidates.length > 0) {
+      // MEJORA: Aleatoriedad solo en las primeras jugadas para evitar patrones repetidos
+      const moveNumber = game.history().length;
+      if (moveNumber < 8 && bestCandidates.length > 1) {
+        // Más aleatoriedad en las primeras 8 jugadas
+        const randomIndex = Math.floor(Math.random() * bestCandidates.length);
+        bestMove = bestCandidates[randomIndex];
+        console.warn(`🎲 (Apertura) Selección aleatoria entre mejores candidatos: ${bestMove}`);
+      } else if (Math.random() < this.randomness && bestCandidates.length > 0) {
+        // Aleatoriedad normal para el resto de la partida
         const randomIndex = Math.floor(Math.random() * bestCandidates.length);
         bestMove = bestCandidates[randomIndex];
         console.warn(`🎲 Selección entre mejores candidatos: ${bestMove}`);
@@ -1264,7 +1335,7 @@ class ChessAI {
       console.log(`⏱️ Tiempo: ${timeTaken}ms, nodos: ${this.nodesEvaluated}, velocidad: ${nodesPerSecond} nps`);
       console.log(`🏆 Mejor movimiento: ${bestMove} (valor: ${bestValue})`);
 
-      return bestMove;
+      return { move: bestMove, evaluation: bestValue };
     } catch (error) {
       console.error("Error en getBestMove:", error);
       return availableMoves && availableMoves.length > 0 ? availableMoves[0].san : null;
