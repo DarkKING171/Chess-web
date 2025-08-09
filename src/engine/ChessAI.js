@@ -1,24 +1,19 @@
 // src/engine/ChessAI.js - Motor de ajedrez mejorado y optimizado
 import { Chess } from 'chess.js';
 
-// Valores de las piezas optimizados y más precisos (constantes para acceso rápido)
-const PIECE_VALUES = {
-  p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000,
-  P: -100, N: -320, B: -330, R: -500, Q: -900, K: -20000
-};
-
 // Tablas de posición precalculadas para evaluación más rápida
 const POSITION_TABLES = {
   p: [ // Peones negros
-    [0, 0, 0, 0, 0, 0, 0, 0],
-    [78, 83, 86, 73, 102, 82, 85, 90],
-    [7, 29, 21, 44, 40, 31, 44, 7],
-    [-17, 16, -2, 15, 14, 0, 15, -13],
-    [-26, 3, 10, 9, 6, 1, 0, -23],
-    [-22, 9, 5, -11, -10, -2, 3, -19],
-    [-31, 8, -7, -37, -36, -14, 3, -31],
-    [0, 0, 0, 0, 0, 0, 0, 0]
-  ],
+  [0, 0, 0, 0, 0, 0, 0, 0],
+  [78, 83, 86, 73, 102, 82, 85, 90],
+  [7, 29, 21, 44, 40, 31, 44, 7],
+  [-17, 16, -2, 15, 14, 0, 15, -13],
+  [-26, 3, 10, 9, 6, 1, 0, -23],
+  [-22, 9, 5, -11, -10, -2, 3, -19],
+  [-31, 8, -7, -37, -36, -14, 3, -31],
+  [0, 0, 0, 0, 0, 0, 0, 0]
+],
+
   n: [ // Caballos
     [-66, -53, -75, -75, -10, -55, -58, -70],
     [-3, -6, 100, -36, 4, 62, -4, -14],
@@ -232,7 +227,7 @@ const OPENING_BOOK = {
   "d4 d5 c4 e6 Nc3": ["Nf6", "c6", "Be7"], // Gambito de Dama ortodoxo
   "d4 d5 c4 e6 Nc3 Nf6": ["Bg5", "Nf3", "cxd5"], // Ortodoxo, Variante Tartakower
   "d4 d5 c4 e6 Nc3 Nf6 Bg5": ["Be7", "Nbd7"], // Ortodoxo clásico
-  "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7": ["e3", "Nf3"], // Ortodoxo principal
+  "d4 d5 c4 e6 Nc3 Nf6 Be7": ["e3", "Nf3"], // Ortodoxo principal
   "d4 d5 c4 e6 Nc3 Nf6 Nf3": ["Be7", "c6"], // Variante Tartakower
   
   // Defensa Eslava
@@ -297,51 +292,6 @@ const OPENING_BOOK = {
   "d4 Nf6 c4 c5 d5": ["b5", "e6"], // Benko principal
   "d4 Nf6 c4 c5 d5 b5": ["cxb5", "a4"], // Benko Gambito
   "d4 Nf6 c4 c5 d5 b5 cxb5": ["a6", "g6"], // Benko Gambito aceptado
-  
-  // ========== APERTURAS HIPERMODERNAS ==========
-  
-  // Apertura Inglesa
-  "c4": ["e5", "Nf6", "c5", "e6", "f5"], // Inglesa
-  "c4 e5": ["Nc3", "g3", "Nf3"], // Inglesa Simétrica
-  "c4 e5 Nc3": ["Nf6", "f5", "Nc6"], // Inglesa principal
-  "c4 e5 Nc3 Nf6": ["g3", "Nf3"], // Inglesa Simétrica
-  "c4 e5 Nc3 Nf6 g3": ["Bb4", "d5"], // Inglesa Dragón Invertido
-  
-  // Apertura Inglesa vs Siciliana
-  "c4 c5": ["Nc3", "Nf3", "g3"], // Inglesa Simétrica
-  "c4 c5 Nc3": ["Nc6", "Nf6", "g6"], // Inglesa Simétrica
-  "c4 c5 Nc3 Nc6": ["g3", "Nf3"], // Inglesa Simétrica
-  "c4 c5 Nc3 Nc6 g3": ["g6", "e6"], // Inglesa Simétrica
-  
-  // Apertura Reti
-  "Nf3": ["d5", "Nf6", "f5", "c5"], // Reti
-  "Nf3 d5": ["c4", "g3", "d4"], // Reti principal
-  "Nf3 d5 c4": ["d4", "e6", "c6"], // Reti clásica
-  "Nf3 d5 c4 d4": ["b4", "e3"], // Reti Gambito
-  "Nf3 Nf6": ["c4", "g3", "d4"], // Reti vs Nf6
-  "Nf3 Nf6 c4": ["c5", "e6", "g6"], // Reti transpone
-  "Nf3 Nf6 g3": ["g6", "d5"], // Reti Fianchetto
-  
-  // Sistema Londres
-  "d4 d5 Bf4": ["Nf6", "c5", "e6"], // Sistema Londres
-  "d4 Nf6 Bf4": ["c5", "e6", "g6"], // Londres vs Nf6
-  "d4 Nf6 Bf4 c5": ["e3", "c3"], // Londres principal
-  "d4 Nf6 Bf4 e6": ["e3", "Nf3"], // Londres clásico
-  "d4 Nf6 Bf4 g6": ["Nc3", "e3"], // Londres vs Fianchetto
-  
-  // Sistema Colle
-  "d4 d5 Nf3": ["Nf6", "c5", "e6"], // Sistema Colle
-  "d4 d5 Nf3 Nf6": ["e3", "c4"], // Colle principal
-  "d4 d5 Nf3 Nf6 e3": ["e6", "c5"], // Colle clásico
-  "d4 d5 Nf3 Nf6 e3 e6": ["Bd3", "c4"], // Colle System
-  "d4 d5 Nf3 Nf6 e3 e6 Bd3": ["c5", "Be7"], // Colle principal
-  
-  // Apertura Catalán
-  "d4 Nf6 c4 e6 g3": ["d5", "Be7"], // Catalán
-  "d4 Nf6 c4 e6 g3 d5": ["Bg2", "Nf3"], // Catalán principal
-  "d4 Nf6 c4 e6 g3 d5 Bg2": ["Be7", "dxc4"], // Catalán clásico
-  "d4 Nf6 c4 e6 g3 d5 Bg2 Be7": ["Nf3", "Nc3"], // Catalán cerrado
-  "d4 Nf6 c4 e6 g3 d5 Bg2 dxc4": ["Nf3", "Qa4+"], // Catalán abierto
   
   // ========== GAMBITOS ESPECIALES ==========
   
@@ -729,15 +679,15 @@ console.log("Análisis de la Española:");
 console.log(getRecommendedMoves("e4 e5 Nf3 Nc6 Bb5"));
 
 // ========== EXPORTACIÓN ==========
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    OPENING_BOOK,
-    getRecommendedMoves,
-    searchPosition,
-    getOpeningName,
-    getECOCode
-  };
-}
+ if (typeof module !== 'undefined' && module.exports) {
+   module.exports = {
+     OPENING_BOOK,
+     getRecommendedMoves,
+     searchPosition,
+     getOpeningName,
+     getECOCode
+   };
+ }
 
 // Puedes agregar más líneas populares aquí...
 
@@ -753,7 +703,13 @@ function getOpeningMove(history) {
 }
 
 class ChessAI {
-  constructor(depth = 3) {
+  constructor(depth = 3, pieceValues = null) {
+    // Si no se pasan valores, usar los por defecto
+    this.PIECE_VALUES = pieceValues || {
+      p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000,
+      P: -100, N: -320, B: -330, R: -500, Q: -900, K: -20000
+    };
+    
     // Valores núcleo para el algoritmo
     this.depth = depth;
     this.nodesEvaluated = 0;
@@ -853,8 +809,8 @@ class ChessAI {
     // No evaluar intercambios para movimientos que no son capturas
     if (!move.captured) return 0;
     
-    const capturedValue = Math.abs(PIECE_VALUES[move.captured]);
-    const attackerValue = Math.abs(PIECE_VALUES[move.piece]);
+    const capturedValue = Math.abs(this.PIECE_VALUES[move.captured]);
+    const attackerValue = Math.abs(this.PIECE_VALUES[move.piece]);
     
     // Valor base del intercambio
     let exchangeValue = capturedValue - attackerValue;
@@ -914,7 +870,7 @@ class ChessAI {
       for (let j = 0; j < 8; j++) {
         const piece = board[i][j];
         if (piece && piece.type !== 'k') {
-          const pieceValue = Math.abs(PIECE_VALUES[piece.type]);
+          const pieceValue = Math.abs(this.PIECE_VALUES[piece.type]);
           if (piece.type !== 'p') {
             totalMaterial += pieceValue;
           }
@@ -966,7 +922,7 @@ class ChessAI {
         if (!piece) continue; // Saltarse casillas vacías
         
         // Valor de la pieza
-        const pieceValue = PIECE_VALUES[piece.type];
+        const pieceValue = this.PIECE_VALUES[piece.type];
         
         // Valor posicional según fase de juego
         const actualRow = piece.color === 'w' ? 7 - i : i;
@@ -1000,7 +956,7 @@ class ChessAI {
             const isProtected = tempGame.moves({verbose: true}).some(move => {
               return move.to === square && 
                      move.color === piece.color && 
-                     Math.abs(PIECE_VALUES[move.piece]) < Math.abs(pieceValue);
+                     Math.abs(this.PIECE_VALUES[move.piece]) < Math.abs(pieceValue);
             });
             
             if (isProtected) {
@@ -1083,7 +1039,7 @@ class ChessAI {
     const mobilityBonus = moves.length * (this.midgameWeight < 0.5 ? 3 : 2);
     bonus += game.turn() === 'b' ? mobilityBonus : -mobilityBonus;
     
-    // Control central - optimizado con array precalculado
+    // Control central - optimizado con array precalado
     const centralControl = moves.filter(move => 
       CENTRAL_SQUARES.some(square => move.includes(square))
     ).length;
@@ -1143,7 +1099,7 @@ class ChessAI {
           const isAttacked = game.isAttacked(square, pieceColor === 'w' ? 'b' : 'w');
           
           if (isAttacked) {
-            const pieceValue = Math.abs(PIECE_VALUES[piece.type]);
+            const pieceValue = Math.abs(this.PIECE_VALUES[piece.type]);
             
             // Penalizar más fuertemente tener piezas propias amenazadas en nivel alto
             if (isPlayerPiece) {
@@ -1173,7 +1129,7 @@ class ChessAI {
       for (let j = 0; j < 8 && totalMaterial < materialLimit; j++) {
         const piece = board[i][j];
         if (piece && piece.type !== 'k' && piece.type !== 'p') {
-          totalMaterial += Math.abs(PIECE_VALUES[piece.type]);
+          totalMaterial += Math.abs(this.PIECE_VALUES[piece.type]);
         }
       }
     }
@@ -1193,7 +1149,7 @@ class ChessAI {
     let bonus = 0;
     
     // Bono por jaque
-    if (game.inCheck()) {
+    if ( game.inCheck()) {
       bonus += game.turn() === 'b' ? -50 : 50;
     }
     
@@ -1202,7 +1158,7 @@ class ChessAI {
     const mobilityBonus = moves.length * (isEndgame ? 3 : 2);
     bonus += game.turn() === 'b' ? mobilityBonus : -mobilityBonus;
     
-    // Simplicidad: control central usando array precalculado
+    // Simplicidad: control central usando array precalado
     const centralControl = moves.filter(move => 
       CENTRAL_SQUARES.some(square => move.includes(square))
     ).length;
@@ -1355,23 +1311,36 @@ class ChessAI {
     const colStart = Math.max(0, king.col - 1);
     const colEnd = Math.min(7, king.col + 1);
     
-    for (let file = colStart; file <= colEnd; file++) {
-      let foundPawn = false;
+    for (let fileOffset = -1; fileOffset <= 1; fileOffset++) {
+      const file = king.col + fileOffset; // <-- CORREGIDO
+      if (file < 0 || file > 7) continue;
       
-      // Comprobar dos filas adelante en la dirección correcta
+      let pawnFound = false;
+      let pawnDistance = 0;
+      
+      // Buscar peón más cercano en esta columna
       for (let rankOffset = 1; rankOffset <= 2; rankOffset++) {
         const rank = king.row + (direction * rankOffset);
         if (rank >= 0 && rank < 8) {
           const piece = board[rank][file];
           if (piece && piece.type === 'p' && piece.color === color) {
-            foundPawn = true;
+            pawnFound = true;
+            pawnDistance = rankOffset;
             break;
           }
         }
       }
       
-      if (!foundPawn) {
-        shieldPenalty += 20;
+      if (pawnFound) {
+        // Peones más cerca son mejores, pero no demasiado cerca
+        if (pawnDistance === 1) {
+          shieldPenalty += fileOffset === 0 ? 15 : 25; // Peón frontal vs lateral
+        } else if (pawnDistance === 2) {
+          shieldPenalty += 20; // Distancia óptima
+        }
+      } else {
+        // Penalizar ausencia de peones
+        shieldPenalty -= fileOffset === 0 ? 30 : 20;
       }
     }
 
@@ -1467,7 +1436,7 @@ class ChessAI {
         if (move.captured && this.pieceProtectionFactor > 1.0 && depth >= 3) {
           const exchangeValue = this.evaluateExchange(game, move);
           // Si el intercambio es claramente desfavorable, considerar saltarlo en niveles altos
-          if (exchangeValue < -this.exchangeEvaluationThreshold * Math.abs(PIECE_VALUES[move.captured])) {
+          if (exchangeValue < -this.exchangeEvaluationThreshold * Math.abs(this.PIECE_VALUES[move.captured])) {
             // Solo aplicar a niveles altos de dificultad
             if (this.depth >= 4 && i > 2) {  // No aplicar a los primeros movimientos para evitar bugs
               continue; // Saltar este movimiento que regala material
@@ -1552,7 +1521,7 @@ class ChessAI {
         if (move.captured && this.pieceProtectionFactor > 1.0 && depth >= 3) {
           const exchangeValue = this.evaluateExchange(game, move);
           // Si el intercambio es claramente desfavorable, considerar saltarlo en niveles altos
-          if (exchangeValue < -this.exchangeEvaluationThreshold * Math.abs(PIECE_VALUES[move.captured])) {
+          if (exchangeValue < -this.exchangeEvaluationThreshold * Math.abs(this.PIECE_VALUES[move.captured])) {
             // Solo aplicar a niveles altos de dificultad
             if (this.depth >= 4 && i > 2) {  // No aplicar a los primeros movimientos para evitar bugs
               continue; // Saltar este movimiento que regala material
@@ -1661,10 +1630,10 @@ class ChessAI {
       const bCheck = b.san.includes('+') ? 1000 : 0;
       
       // MVV-LVA: Most Valuable Victim - Least Valuable Attacker
-      const aValue = a.captured ? Math.abs(PIECE_VALUES[a.captured]) : 0;
-      const bValue = b.captured ? Math.abs(PIECE_VALUES[b.captured]) : 0;
-      const aAttacker = Math.abs(PIECE_VALUES[a.piece]);
-      const bAttacker = Math.abs(PIECE_VALUES[b.piece]);
+      const aValue = a.captured ? Math.abs(this.PIECE_VALUES[a.captured]) : 0;
+      const bValue = b.captured ? Math.abs(this.PIECE_VALUES[b.captured]) : 0;
+      const aAttacker = Math.abs(this.PIECE_VALUES[a.piece]);
+      const bAttacker = Math.abs(this.PIECE_VALUES[b.piece]);
       
       // Capturar piezas valiosas con piezas menos valiosas primero
       return (bValue + bCheck - bAttacker / 100) - (aValue + aCheck - aAttacker / 100);
@@ -1677,7 +1646,7 @@ class ChessAI {
         if (!move.captured || move.san.includes('+')) return true; // Mantener jaques y no capturas
         
         const exchangeValue = this.evaluateExchange(game, move);
-        return exchangeValue >= -Math.abs(PIECE_VALUES[move.piece]) * 0.8; // Solo filtrar intercambios muy desfavorables
+        return exchangeValue >= -Math.abs(this.PIECE_VALUES[move.piece]) * 0.8; // Solo filtrar intercambios muy desfavorables
       });
       
       // Si tenemos movimientos filtrados, usarlos; de lo contrario, mantener los originales
@@ -1730,6 +1699,726 @@ class ChessAI {
       return minEval;
     }
   }
+  
+// 🏰 SISTEMA AVANZADO DE EVALUACIÓN DE ENROQUE Y TÁCTICAS ESPECIALES 🏰
+
+// Evaluación mejorada del tablero con énfasis en enroque y tácticas
+evaluateBoard(game) {
+  // Uso de tabla de transposición para evitar cálulos repetidos
+  const key = game.fen();
+  if (this.transpositionTable.has(key)) {
+    return this.transpositionTable.get(key);
+  }
+
+  // Casos especiales - comprobación rápida para finales de juego
+  if (game.isCheckmate()) {
+    return game.turn() === 'b' ? -50000 : 50000;
+  }
+  if (game.isStalemate() || game.isDraw()) {
+    return this.contempt;
+  }
+
+  // Evaluación de material y posición optimizada
+  const board = game.board();
+  let mgScore = 0;  // Puntuación de juego medio
+  let egScore = 0;  // Puntuación de final de juego
+  let totalMaterial = 0;
+  
+  // Contadores de material para cada color
+  let whiteMaterial = 0;
+  let blackMaterial = 0;
+  
+  // 🔍 NUEVO: Detectar estado de enroque y posición de reyes
+  const castlingRights = {
+    white: game.castlingRights('w'),
+    black: game.castlingRights('b')
+  };
+  
+  const kingPositions = { w: null, b: null };
+  const rookPositions = { w: [], b: [] };
+  
+  // Precálculo de material total y posiciones especiales
+  for (let i = 0; i < 8; i++) {
+    for (let j = 0; j < 8; j++) {
+      const piece = board[i][j];
+      if (piece) {
+        // Almacenar posiciones de reyes y torres
+        if (piece.type === 'k') {
+          kingPositions[piece.color] = { row: i, col: j, square: String.fromCharCode(97 + j) + (8 - i) };
+        }
+        if (piece.type === 'r') {
+          rookPositions[piece.color].push({ row: i, col: j, square: String.fromCharCode(97 + j) + (8 - i) });
+        }
+        
+        if (piece.type !== 'k') {
+          const pieceValue = Math.abs(this.PIECE_VALUES[piece.type]);
+          if (piece.type !== 'p') {
+            totalMaterial += pieceValue;
+          }
+          
+          // Suma material por color
+          if (piece.color === 'w') {
+            whiteMaterial += pieceValue;
+          } else {
+            blackMaterial += pieceValue;
+          }
+        }
+      }
+    }
+  }
+
+  // Determinación de fase de juego
+  const phase = Math.min(256, totalMaterial * 256 / 6600);
+  this.midgameWeight = phase / 256;
+  this.endgameWeight = 1 - this.midgameWeight;
+  
+  const moveNumber = game.history().length;
+  const isEarlyGame = moveNumber < 20;
+  const isMidGame = moveNumber >= 20 && moveNumber < 40;
+
+  // 🏰 EVALUACIÓN AVANZADA DE ENROQUE
+  const castlingEvaluation = this.evaluateCastling(game, castlingRights, kingPositions, rookPositions, moveNumber);
+  mgScore += castlingEvaluation.midgame;
+  egScore += castlingEvaluation.endgame;
+
+  // 🎯 DETECCIÓN DE PATRONES TÁCTICOS AVANZADOS
+  const tacticalScore = this.evaluateTacticalPatterns(game, board, kingPositions);
+  mgScore += tacticalScore;
+
+  // 🔄 EVALUACIÓN DE COORDINACIÓN DE PIEZAS
+  const coordinationScore = this.evaluatePieceCoordination(game, board);
+  mgScore += coordinationScore;
+
+  // Material y posición básica (código original simplificado)
+  for (let i = 0; i < 8; i++) {
+    for (let j = 0; j < 8; j++) {
+      const piece = board[i][j];
+      if (!piece) continue;
+      
+      const pieceValue = this.PIECE_VALUES[piece.type];
+      const actualRow = piece.color === 'w' ? 7 - i : i;
+      let mgPosValue = 0;
+      let egPosValue = 0;
+      
+      if (POSITION_TABLES[piece.type]) {
+        mgPosValue = POSITION_TABLES[piece.type][actualRow][j];
+        egPosValue = piece.type === 'k' ? POSITION_TABLES.k_endgame[actualRow][j] : mgPosValue;
+      }
+      
+      const factor = piece.color === 'b' ? 1 : -1;
+      mgScore += factor * (Math.abs(pieceValue) + mgPosValue);
+      egScore += factor * (Math.abs(pieceValue) + egPosValue);
+    }
+  }
+
+  // Evaluaciones adicionales
+  let bonus = 0;
+  
+  if (game.inCheck()) {
+    bonus += game.turn() === 'b' ? -70 : 70;
+  }
+  
+  const moves = game.moves();
+  const mobilityBonus = moves.length * (this.midgameWeight < 0.5 ? 3 : 2);
+  bonus += game.turn() === 'b' ? mobilityBonus : -mobilityBonus;
+  
+  // Interpolación entre fases de juego
+  let totalEvaluation = this.midgameWeight * mgScore + this.endgameWeight * egScore + bonus;
+  
+  if (Math.abs(totalEvaluation) < 50) {
+    totalEvaluation += this.contempt;
+  }
+
+  // Almacenar en tabla de transposición
+  if (this.transpositionTable.size < 100000) {
+    this.transpositionTable.set(key, totalEvaluation);
+  }
+
+  return totalEvaluation;
+}
+
+// 🏰 EVALUACIÓN COMPLETA DE ENROQUE
+evaluateCastling(game, castlingRights, kingPositions, rookPositions, moveNumber) {
+  let midgameScore = 0;
+  let endgameScore = 0;
+  
+  ['w', 'b'].forEach(color => {
+    const factor = color === 'w' ? 1 : -1;
+    const king = kingPositions[color];
+    const rooks = rookPositions[color];
+    
+    if (!king) return;
+    
+    // 🏰 BONIFICACIONES POR ENROQUE REALIZADO
+    const hasCastled = this.detectCastlingStatus(king, rooks, color);
+    
+    if (hasCastled.kingSide) {
+      midgameScore += factor * 80; // Gran bonus por enroque corto
+      endgameScore += factor * 30;
+      
+      // Bonus extra si se enroca temprano
+      if (moveNumber < 15) {
+        midgameScore += factor * 40;
+      }
+    } else if (hasCastled.queenSide) {
+      midgameScore += factor * 70; // Bonus por enroque largo
+      endgameScore += factor * 25;
+      
+      if (moveNumber < 12) {
+        midgameScore += factor * 35;
+      }
+    }
+    
+    // 🚫 PENALIZACIONES POR PERDER DERECHOS DE ENROQUE
+    if (!hasCastled.kingSide && !hasCastled.queenSide) {
+      const rights = castlingRights[color === 'w' ? 'white' : 'black'];
+      
+      // Penalizar pérdida de derechos de enroque
+      if (rights === '') {
+        // Ha perdido todos los derechos
+        if (moveNumber < 10) {
+          midgameScore += factor * (-120); // Penalización severa temprana
+        } else if (moveNumber < 20) {
+          midgameScore += factor * (-80);
+        } else {
+          midgameScore += factor * (-40);
+        }
+      } else {
+        // Aún puede enrocar - evaluar si debería hacerlo
+        const shouldCastle = this.shouldCastleNow(game, color, king, moveNumber);
+        if (shouldCastle.urgency > 0.7) {
+          midgameScore += factor * (-60 * shouldCastle.urgency);
+        }
+      }
+    }
+    
+    // 🛡️ EVALUACIÓN DE SEGURIDAD DEL REY SEGÚN SU POSICIÓN
+    const kingSafety = this.evaluateKingSafetyAdvanced(game, color, king, hasCastled, moveNumber);
+    midgameScore += factor * kingSafety;
+    
+    // 🎯 DETECCIÓN DE AMENAZAS AL ENROQUE
+    const castlingThreats = this.evaluateCastlingThreats(game, color, castlingRights);
+    midgameScore += factor * castlingThreats;
+  });
+  
+  return { midgame: midgameScore, endgame: endgameScore };
+}
+
+// 🔍 DETECTAR ESTADO DE ENROQUE
+detectCastlingStatus(king, rooks, color) {
+  const expectedRank = color === 'w' ? 7 : 0;
+  
+  // Posiciones después del enroque
+  const kingSideCastled = king.row === expectedRank && king.col === 6;
+  const queenSideCastled = king.row === expectedRank && king.col === 2;
+  
+  // Verificar si las torres están en posiciones post-enroque
+  const hasRookOnF = rooks.some(r => r.row === expectedRank && r.col === 5);
+  const hasRookOnD = rooks.some(r => r.row === expectedRank && r.col === 3);
+  
+  return {
+    kingSide: kingSideCastled && hasRookOnF,
+    queenSide: queenSideCastled && hasRookOnD,
+    kingMoved: king.row !== expectedRank || king.col !== 4
+  };
+}
+
+// 🤔 EVALUAR SI DEBERÍA ENROCAR AHORA
+shouldCastleNow(game, color, king, moveNumber) {
+  let urgency = 0;
+  let reasons = [];
+  
+  // Factor tiempo - más urgente en etapas tempranas
+  if (moveNumber < 8) {
+    urgency += 0.3;
+    reasons.push('early_development');
+  } else if (moveNumber < 15) {
+    urgency += 0.5;
+    reasons.push('mid_opening');
+  }
+  
+  // Factor seguridad - rey en el centro es peligroso
+  if (king.col >= 3 && king.col <= 4) { // Rey en columnas centrales
+    urgency += 0.4;
+    reasons.push('king_center_danger');
+  }
+  
+  // Verificar amenazas en el centro
+  try {
+    const centerSquares = ['d4', 'd5', 'e4', 'e5'];
+    const enemyColor = color === 'w' ? 'b' : 'w';
+    
+    centerSquares.forEach(square => {
+      if (game.isAttacked(square, enemyColor)) {
+        urgency += 0.1;
+      }
+    });
+    
+    // Rey bajo amenaza directa
+    if (game.isAttacked(king.square, enemyColor)) {
+      urgency += 0.6;
+      reasons.push('king_under_attack');
+    }
+  } catch (e) {
+    // Ignorar errores
+  }
+  
+  return { urgency: Math.min(1.0, urgency), reasons };
+}
+
+// 🛡️ EVALUACIÓN AVANZADA DE SEGURIDAD DEL REY
+evaluateKingSafetyAdvanced(game, color, king, castlingStatus, moveNumber) {
+  let safetyScore = 0;
+  
+  // Bonificar rey enrocado en juego medio
+  if (moveNumber < 30) {
+    if (castlingStatus.kingSide || castlingStatus.queenSide) {
+      safetyScore += 60;
+      
+      // Evaluar escudo de peones después del enroque
+      const pawnShield = this.evaluatePawnShieldAdvanced(game.board(), king, color);
+      safetyScore += pawnShield;
+    }
+  }
+  
+  // Penalizar rey expuesto en el centro
+  if (!castlingStatus.kingMoved && moveNumber > 10) {
+    safetyScore -= 80;
+  }
+  
+  // Evaluar proximidad de piezas enemigas al rey
+  const enemyProximity = this.evaluateEnemyProximityToKing(game, king, color);
+  safetyScore -= enemyProximity;
+  
+  return safetyScore;
+}
+
+// 🏛️ EVALUACIÓN MEJORADA DEL ESCUDO DE PEONES
+evaluatePawnShieldAdvanced(board, king, color) {
+  let shieldValue = 0;
+  const direction = color === 'w' ? -1 : 1;
+  const kingFile = king.col;
+  
+  // Evaluar peones en las tres columnas alrededor del rey
+  for (let fileOffset = -1; fileOffset <= 1; fileOffset++) {
+    const file = king.col + fileOffset; // <-- CORREGIDO
+    if (file < 0 || file > 7) continue;
+    
+    let pawnFound = false;
+    let pawnDistance = 0;
+    
+    // Buscar peón más cercano en esta columna
+    for (let rankOffset = 1; rankOffset <= 3; rankOffset++) {
+      const rank = king.row + (direction * rankOffset);
+      if (rank < 0 || rank >= 8) break;
+      
+      const piece = board[rank][file];
+      if (piece && piece.type === 'p' && piece.color === color) {
+        pawnFound = true;
+        pawnDistance = rankOffset;
+        break;
+      }
+    }
+    
+    if (pawnFound) {
+      // Peones más cerca son mejores, pero no demasiado cerca
+      if (pawnDistance === 1) {
+        shieldValue += fileOffset === 0 ? 15 : 25; // Peón frontal vs lateral
+      } else if (pawnDistance === 2) {
+        shieldValue += 20; // Distancia óptima
+      }
+    } else {
+      // Penalizar ausencia de peones
+      shieldValue -= fileOffset === 0 ? 30 : 20;
+    }
+  }
+  
+  return shieldValue;
+}
+
+// ⚔️ EVALUACIÓN DE AMENAZAS AL ENROQUE
+evaluateCastlingThreats(game, color, castlingRights) {
+  let threatScore = 0;
+  const enemyColor = color === 'w' ? 'b' : 'w';
+  const rights = castlingRights[color === 'w' ? 'white' : 'black'];
+  
+  if (rights === '') return 0; // No puede enrocar
+  
+  try {
+    // Verificar si las casillas de enroque están bajo ataque
+    const baseRank = color === 'w' ? '1' : '8';
+    
+    if (rights.includes('K') || rights.includes('k')) { // Puede enrocar corto
+      const kingSideSquares = [`f${baseRank}`, `g${baseRank}`];
+      kingSideSquares.forEach(square => {
+        if (game.isAttacked(square, enemyColor)) {
+          threatScore -= 40; // Penalizar enroque amenazado
+        }
+      });
+    }
+    
+    if (rights.includes('Q') || rights.includes('q')) { // Puede enrocar largo
+      const queenSideSquares = [`d${baseRank}`, `c${baseRank}`, `b${baseRank}`];
+      queenSideSquares.forEach(square => {
+        if (game.isAttacked(square, enemyColor)) {
+          threatScore -= 35;
+        }
+      });
+    }
+  } catch (e) {
+    // Ignorar errores
+  }
+  
+  return threatScore;
+}
+
+// 🎯 DETECCIÓN DE PATRONES TÁCTICOS AVANZADOS
+evaluateTacticalPatterns(game, board, kingPositions) {
+  let tacticalScore = 0;
+  
+  // 🔱 Detectar horquillas potenciales
+  tacticalScore += this.detectForkPatterns(game, board);
+  
+  // 📌 Detectar clavadas
+  tacticalScore += this.detectPinPatterns(board, kingPositions);
+  
+  // 🗡️ Detectar ataques dobles
+  tacticalScore += this.detectDoubleAttacks(game, board);
+  
+  // ⚡ Detectar sacrificios tácticos
+  tacticalScore += this.detectTacticalSacrifices(game);
+  
+  return tacticalScore;
+}
+
+// 🔱 DETECCIÓN DE HORQUILLAS
+detectForkPatterns(game, board) {
+  let forkScore = 0;
+  const moves = game.moves({ verbose: true });
+  
+  moves.forEach(move => {
+    if (move.piece === 'n') { // Los caballos son maestros de las horquillas
+      try {
+        game.move(move);
+        const attackedSquares = this.getAttackedSquares(game, game.turn() === 'w' ? 'b' : 'w', move.to);
+        
+        // Contar piezas valiosas atacadas
+        let valuableTargets = 0;
+        let totalValue = 0;
+        
+        attackedSquares.forEach(square => {
+          const piece = game.get(square);
+          if (piece && piece.color !== (game.turn() === 'w' ? 'b' : 'w')) {
+            const pieceValue = Math.abs(this.PIECE_VALUES[piece.type]);
+            if (pieceValue > 300) { // Solo piezas valiosas
+              valuableTargets++;
+              totalValue += pieceValue;
+            }
+          }
+        });
+        
+        if (valuableTargets >= 2) {
+          forkScore += (game.turn() === 'w' ? -1 : 1) * (totalValue / 10);
+        }
+        
+        game.undo();
+      } catch (e) {
+        game.undo();
+      }
+    }
+  });
+  
+  return forkScore;
+}
+
+// 📌 DETECCIÓN DE CLAVADAS
+detectPinPatterns(board, kingPositions) {
+  let pinScore = 0;
+  
+  ['w', 'b'].forEach(color => {
+    const king = kingPositions[color];
+    if (!king) return;
+    
+    const factor = color === 'w' ? -1 : 1;
+    
+    // Buscar piezas en líneas desde el rey
+    const directions = [
+      [-1, -1], [-1, 0], [-1, 1],
+      [0, -1],           [0, 1],
+      [1, -1],  [1, 0],  [1, 1]
+    ];
+    
+    directions.forEach(([dr, dc]) => {
+      let piecesBetween = [];
+      let attackingPiece = null;
+      
+      for (let dist = 1; dist < 8; dist++) {
+        const r = king.row + dr * dist;
+        const c = king.col + dc * dist;
+        
+        if (r < 0 || r >= 8 || c < 0 || c >= 8) break;
+        
+        const piece = board[r][c];
+        if (piece) {
+          if (piece.color === color) {
+            piecesBetween.push(piece);
+          } else {
+            // Pieza enemiga - verificar si puede atacar en esta dirección
+            const canAttack = (Math.abs(dr) === Math.abs(dc) && (piece.type === 'b' || piece.type === 'q')) ||
+                            ((dr === 0 || dc === 0) && (piece.type === 'r' || piece.type === 'q'));
+            
+            if (canAttack) {
+              attackingPiece = piece;
+            }
+            break;
+          }
+        }
+      }
+      
+      // Si hay exactamente una pieza entre el rey y un atacante, está clavada
+      if (piecesBetween.length === 1 && attackingPiece) {
+        const pinnedValue = Math.abs(this.PIECE_VALUES[piecesBetween[0].type]);
+        pinScore += factor * (-pinnedValue / 5); // Penalizar estar clavado
+      }
+    });
+  });
+  
+  return pinScore;
+}
+
+// 🗡️ DETECCIÓN DE ATAQUES DOBLES
+detectDoubleAttacks(game, board) {
+  let doubleAttackScore = 0;
+  const moves = game.moves({ verbose: true });
+  
+  moves.forEach(move => {
+    try {
+      game.move(move);
+      
+      // Contar piezas enemigas atacadas después de este movimiento
+      const attackedPieces = [];
+      
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const square = String.fromCharCode(97 + c) + (8 - r);
+          const piece = game.get(square);
+          
+          if (piece && piece.color === game.turn()) { // Pieza enemiga
+            if (game.isAttacked(square, game.turn() === 'w' ? 'b' : 'w')) {
+              attackedPieces.push({ piece, value: Math.abs(this.PIECE_VALUES[piece.type]) });
+            }
+          }
+        }
+      }
+      
+      if (attackedPieces.length >= 2) {
+        const totalValue = attackedPieces.reduce((sum, p) => sum + p.value, 0);
+        doubleAttackScore += (game.turn() === 'w' ? 1 : -1) * (totalValue / 15);
+      }
+      
+      game.undo();
+    } catch (e) {
+      game.undo();
+    }
+  });
+  
+  return doubleAttackScore;
+}
+
+// ⚡ DETECCIÓN DE SACRIFICIOS TÁCTICOS
+detectTacticalSacrifices(game) {
+  let sacrificeScore = 0;
+  const moves = game.moves({ verbose: true });
+  
+  moves.forEach(move => {
+    if (move.captured) {
+      const capturedValue = Math.abs(this.PIECE_VALUES[move.captured]);
+      const attackerValue = Math.abs(this.PIECE_VALUES[move.piece]);
+      
+      // Si sacrifica material pero da jaque o crea amenazas
+      if (attackerValue > capturedValue && move.san.includes('+')) {
+        sacrificeScore += (game.turn() === 'b' ? 1 : -1) * 30;
+      }
+    }
+  });
+  
+  return sacrificeScore;
+}
+
+// 🔄 EVALUACIÓN DE COORDINACIÓN DE PIEZAS
+evaluatePieceCoordination(game, board) {
+  let coordinationScore = 0;
+  
+  ['w', 'b'].forEach(color => {
+    const factor = color === 'w' ? -1 : 1;
+    const pieces = [];
+    
+    // Recopilar todas las piezas de este color
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const piece = board[r][c];
+        if (piece && piece.color === color) {
+          pieces.push({
+            type: piece.type,
+            square: String.fromCharCode(97 + c) + (8 - r),
+            row: r,
+            col: c
+          });
+        }
+      }
+    }
+    
+    // Evaluar coordinación entre torres
+    const rooks = pieces.filter(p => p.type === 'r');
+    if (rooks.length === 2) {
+      // Torres en la misma fila o columna se coordinan mejor
+      if (rooks[0].row === rooks[1].row || rooks[0].col === rooks[1].col) {
+        coordinationScore += factor * 25;
+      }
+      
+      // Torres conectadas (sin piezas entre ellas)
+      if (this.areRooksConnected(board, rooks[0], rooks[1])) {
+        coordinationScore += factor * 35;
+      }
+    }
+    
+    // Evaluar alfiles en diagonales largas
+    const bishops = pieces.filter(p => p.type === 'b');
+    bishops.forEach(bishop => {
+      const diagonalLength = this.getDiagonalLength(board, bishop, color);
+      coordinationScore += factor * diagonalLength * 2;
+    });
+    
+    // Evaluar caballos en puestos avanzados
+    const knights = pieces.filter(p => p.type === 'n');
+    knights.forEach(knight => {
+      const isOutpost = this.isKnightOutpost(board, knight, color);
+      if (isOutpost) {
+        coordinationScore += factor * 40;
+      }
+    });
+  });
+  
+  return coordinationScore;
+}
+
+// Funciones auxiliares para coordinación
+areRooksConnected(board, rook1, rook2) {
+  if (rook1.row === rook2.row) {
+    // Misma fila - verificar que no hay piezas entre ellas
+    const minCol = Math.min(rook1.col, rook2.col);
+    const maxCol = Math.max(rook1.col, rook2.col);
+    
+    for (let c = minCol + 1; c < maxCol; c++) {
+      if (board[rook1.row][c]) return false;
+    }
+    return true;
+  } else if (rook1.col === rook2.col) {
+    // Misma columna
+    const minRow = Math.min(rook1.row, rook2.row);
+    const maxRow = Math.max(rook1.row, rook2.row);
+    
+    for (let r = minRow + 1; r < maxRow; r++) {
+      if (board[r][rook1.col]) return false;
+    }
+    return true;
+  }
+  
+  return false;
+}
+
+getDiagonalLength(board, bishop, color) {
+  let length = 0;
+  const directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+  
+  directions.forEach(([dr, dc]) => {
+    for (let dist = 1; dist < 8; dist++) {
+      const r = bishop.row + dr * dist;
+      const c = bishop.col + dc * dist;
+      
+      if (r < 0 || r >= 8 || c < 0 || c >= 8) break;
+      
+      const piece = board[r][c];
+      if (piece) {
+        if (piece.color !== color) length++; // Puede atacar
+        break;
+      }
+      length++;
+    }
+  });
+  
+  return length;
+}
+
+isKnightOutpost(board, knight, color) {
+  const enemyColor = color === 'w' ? 'b' : 'w';
+  const direction = color === 'w' ? -1 : 1;
+  
+  // Un caballo está en un puesto avanzado si:
+  // 1. Está en territorio enemigo
+  const isAdvanced = (color === 'w' && knight.row < 4) || (color === 'b' && knight.row > 3);
+  if (!isAdvanced) return false;
+  
+  // 2. No puede ser atacado por peones enemigos
+  const pawnAttackSquares = [
+    { row: knight.row - direction, col: knight.col - 1 },
+    { row: knight.row - direction, col: knight.col + 1 }
+  ];
+  
+  for (const square of pawnAttackSquares) {
+    if (square.row >= 0 && square.row < 8 && square.col >= 0 && square.col < 8) {
+      const piece = board[square.row][square.col];
+      if (piece && piece.type === 'p' && piece.color === enemyColor) {
+        return false;
+      }
+    }
+  }
+  
+  return true;
+}
+
+// Función auxiliar mejorada para obtener casillas atacadas
+getAttackedSquares(game, color, fromSquare) {
+  const attackedSquares = [];
+  
+  try {
+    // Obtener todos los movimientos de la pieza en la casilla dada
+    const moves = game.moves({ verbose: true, square: fromSquare });
+    
+    moves.forEach(move => {
+      if (move.captured || move.san.includes('+')) {
+        attackedSquares.push(move.to);
+      }
+    });
+  } catch (e) {
+    // Ignorar errores
+  }
+  
+  return attackedSquares;
+}
+
+// 🎯 EVALUACIÓN DE PROXIMIDAD DE ENEMIGOS AL REY
+evaluateEnemyProximityToKing(game, king, color) {
+  let proximityThreat = 0;
+  const enemyColor = color === 'w' ? 'b' : 'w';
+  const board = game.board();
+  
+  // Evaluar piezas enemigas en un radio de 3 casillas del rey
+  for (let r = Math.max(0, king.row - 3); r <= Math.min(7, king.row + 3); r++) {
+    for (let c = Math.max(0, king.col - 3); c <= Math.min(7, king.col + 3); c++) {
+      const piece = board[r][c];
+      if (piece && piece.color === enemyColor) {
+        const distance = Math.max(Math.abs(r - king.row), Math.abs(c - king.col));
+        const pieceValue = Math.abs(this.PIECE_VALUES[piece.type]);
+        
+        // Piezas más peligrosas cerca del rey
+        proximityThreat += pieceValue / (distance + 1);
+      }
+    }
+  }
+  
+  return proximityThreat / 10;
+}
 
   // Ordenamiento de movimientos optimizado
   orderMoves(game, moves, ply = 0, currentDepth = 1) {
@@ -1751,8 +2440,8 @@ class ChessAI {
       }
       // MVV-LVA: Most Valuable Victim - Least Valuable Attacker
       else if (move.captured) {
-        const capturedValue = Math.abs(PIECE_VALUES[move.captured]);
-        const attackerValue = Math.abs(PIECE_VALUES[move.piece]);
+        const capturedValue = Math.abs(this.PIECE_VALUES[move.captured]);
+        const attackerValue = Math.abs(this.PIECE_VALUES[move.piece]);
         
         // MEJORA: Evaluar intercambios para mejorar ordenamiento
         let exchangeScore = capturedValue - attackerValue / 100;
@@ -1773,7 +2462,7 @@ class ChessAI {
       }
       // Promociones
       else if (move.promotion) {
-        score = 9000 + Math.abs(PIECE_VALUES[move.promotion]);
+        score = 9000 + Math.abs(this.PIECE_VALUES[move.promotion]);
       }
       // Jaques
       else if (move.san.includes('+')) {
@@ -1809,6 +2498,7 @@ class ChessAI {
         }
       }
       
+      // Almacenar la puntuación
       scoredMoves[i] = { move, score };
     }
     
@@ -1995,7 +2685,17 @@ class ChessAI {
       console.log(`⏱️ Tiempo: ${timeTaken}ms, nodos: ${this.nodesEvaluated}, velocidad: ${nodesPerSecond} nps`);
       console.log(`🏆 Mejor movimiento: ${bestMove} (valor: ${bestValue})`);
 
-      return { move: bestMove, evaluation: bestValue };
+      // Asegurarnos de devolver un objeto de movimiento si podemos (más robusto que una SAN string)
+let finalMove = bestMove;
+
+// Si bestMove es una SAN string, tratar de resolverlo a partir de availableMoves
+if (typeof bestMove === 'string') {
+  const found = availableMoves.find(m => m.san === bestMove);
+  if (found) finalMove = found; // object {from,to,san,flags,...}
+}
+
+// Devolver siempre algo usable por App.makeMove (acepta SAN u object)
+return { move: finalMove, evaluation: bestValue };
     } catch (error) {
       console.error("Error en getBestMove:", error);
       return null;
@@ -2019,43 +2719,92 @@ class ChessAI {
     };
   }
 
-  clearCache() {
-    if (this.transpositionTable) {
-      this.transpositionTable.clear();
+    /**
+   * clearCache(force = false, keepEntries = 10000)
+   * - force = true  -> borra TODO (full clear), como el método original.
+   * - force = false -> poda la tabla de transposición dejando solo las `keepEntries`
+   *                    más útiles (heurística: por valor absoluto de evaluación).
+   */
+  clearCache(force = false, keepEntries = 10000) {
+    try {
+      if (force) {
+        if (this.transpositionTable) this.transpositionTable.clear();
+        if (this.historyTable) this.historyTable.clear();
+        console.log("✅ Cache limpiado (force)");
+        return;
+      }
+
+      // Si no hay nada o ya es pequeño, no hacemos nada.
+      if (!this.transpositionTable || this.transpositionTable.size <= keepEntries) {
+        console.log(`✅ Cache tamaño ${this.transpositionTable ? this.transpositionTable.size : 0} - no es necesario podar`);
+        return;
+      }
+
+      // Conservar las entradas con mayor |valor| (heurística simple)
+      const entries = Array.from(this.transpositionTable.entries());
+      entries.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])); // prioridades por magnitud de evaluación
+      const keep = entries.slice(0, keepEntries);
+
+      // Reemplazar la tabla por la reducida
+      this.transpositionTable = new Map(keep);
+
+      // Podar historyTable si existe (mantener primeros keepEntries)
+      if (this.historyTable && this.historyTable.size > keepEntries) {
+        const hEntries = Array.from(this.historyTable.entries()).slice(0, keepEntries);
+        this.historyTable = new Map(hEntries);
+      }
+
+      console.log(`✅ Cache podada a ${this.transpositionTable.size} entradas (keep=${keepEntries})`);
+    } catch (err) {
+      console.error("❌ Error en clearCache prune:", err);
+      if (this.transpositionTable) this.transpositionTable.clear();
+      if (this.historyTable) this.historyTable.clear();
     }
-    if (this.historyTable) {
-      this.historyTable.clear();
-    }
-    console.log("✅ Cache limpiado");
   }
 
   reset() {
-    this.nodesEvaluated = 0;
-    
-    if (this.transpositionTable) {
-      this.transpositionTable.clear();
-    }
-    if (this.historyTable) {
-      this.historyTable.clear();
-    }
-    
-    this.killerMoves = [];
-    for (let i = 0; i < 10; i++) {
-      this.killerMoves[i] = [];
-    }
-    
-    if (this.usePrincipalVariation) {
-      for (let i = 0; i < 64; i++) {
-        this.pvLength[i] = 0;
-      }
-    }
-    
+    this.transpositionTable.clear();
+    this.historyTable.clear();
     console.log("🔄 Motor de ajedrez reiniciado");
   }
 
   // Método para verificar si la instancia está correctamente inicializada
   isReady() {
     return this.depth !== undefined && this.transpositionTable !== undefined;
+  }
+
+    static async loadTrainedParams(filePath = './trained_ai_params.json') {
+    try {
+      let data;
+
+      // Si estamos en un entorno Node (sin "window"), usamos fs dinámicamente.
+      if (typeof window === 'undefined') {
+        // import dinámico para evitar resolver fs cuando se bundlea para web
+        const fsModule = await import('fs');
+        // compatibilidad: usar sync si existe, si no usar fs.promises
+        if (fsModule.readFileSync) {
+          const text = fsModule.readFileSync(filePath, 'utf8');
+          data = JSON.parse(text);
+        } else {
+          const text = await fsModule.promises.readFile(filePath, 'utf8');
+          data = JSON.parse(text);
+        }
+      } else {
+        // En navegador: cargamos por fetch (archivo público o ruta relativa)
+        const resp = await fetch(filePath);
+        if (!resp.ok) throw new Error(`Fetch error: ${resp.status} ${resp.statusText}`);
+        data = await resp.json();
+      }
+
+      // Pasa los valores entrenados al constructor
+      const ai = new ChessAI(undefined, data.values);
+      ai.diversityParams = data.diversityValues;
+      ai.playingStyle = data.playingStyle;
+      return ai;
+    } catch (err) {
+      console.error('❌ No se pudieron cargar los parámetros entrenados:', err);
+      return new ChessAI();
+    }
   }
 }
 

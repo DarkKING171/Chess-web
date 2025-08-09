@@ -1,8 +1,12 @@
-import GameInfo from "./components/GameInfo/GameInfo";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
-import ChessAI from "./engine/ChessAI";
+import { usePromotion } from "./hooks/usePromotion.js";
+import { PromotionModal } from "./components/PromotionModal.js";
+import { GAME_STATUS } from "./constants.js";
+import { useGameState, useGameDispatch, ACTIONS } from './context/GameContext.js';
+import GameInfo from "./components/GameInfo/GameInfo.jsx";
+import ChessAI from "./engine/ChessAI.js";
 
 // Constantes de configuración mejoradas
 const AI_CONFIG = {
@@ -10,14 +14,6 @@ const AI_CONFIG = {
   THINKING_TIME: 800,
   DEFAULT_DIFFICULTY: 3,
   ANIMATION_DURATION: 300
-};
-
-const GAME_STATUS = {
-  WAITING: 'waiting',
-  THINKING: 'thinking',
-  PLAYING: 'playing',
-  GAME_OVER: 'game_over',
-  PROMOTION: 'promotion'
 };
 
 const SOUND_EFFECTS = {
@@ -63,16 +59,14 @@ const createParticles = (container, color = '#ffff00') => {
 };
 
 function App() {
+  const { aiStats, analysis: aiAnalysis } = useGameState();
+  const dispatch = useGameDispatch();
   const [game, setGame] = useState(new Chess());
-  const [gameStatus, setGameStatus] = useState(GAME_STATUS.PLAYING);
+  const { status: gameStatus } = useGameState();
   const [moveHistory, setMoveHistory] = useState([]);
   const [capturedPieces, setCapturedPieces] = useState({ white: [], black: [] });
   const [difficulty, setDifficulty] = useState(AI_CONFIG.DEFAULT_DIFFICULTY);
   const [error, setError] = useState(null);
-  const [aiStats, setAiStats] = useState(null);
-  const [aiAnalysis, setAiAnalysis] = useState(null);
-  const [promotionSquare, setPromotionSquare] = useState(null);
-  const [pendingMove, setPendingMove] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [highlightedSquares, setHighlightedSquares] = useState({});
   const [moveArrows, setMoveArrows] = useState([]);
@@ -93,6 +87,8 @@ function App() {
   const [timeControl, setTimeControl] = useState({ enabled: false, white: 600, black: 600 });
   const [timers, setTimers] = useState({ white: 600, black: 600 });
   const [gameStartTime, setGameStartTime] = useState(null);
+  const [pendingMove, setPendingMove] = useState(null);
+  const [promotionSquare, setPromotionSquare] = useState(null);
   
   const gameRef = useRef(new Chess());
   const chessAI = useRef(new ChessAI(AI_CONFIG.DEFAULT_DIFFICULTY));
@@ -135,8 +131,14 @@ function App() {
           newTimers[currentPlayer]--;
         } else {
           // Tiempo agotado
-          setGameStatus(GAME_STATUS.GAME_OVER);
-          setError(`¡Tiempo agotado! ${currentPlayer === 'white' ? 'Negras' : 'Blancas'} ganan`);
+          dispatch({
+  type: ACTIONS.SET_STATUS,
+  payload: GAME_STATUS.GAME_OVER
+});
+          dispatch({
+  type: ACTIONS.SET_ERROR,
+  payload: `¡Tiempo agotado! ${currentPlayer === 'white' ? 'Negras' : 'Blancas'} ganan`
+});
           clearInterval(timerRef.current);
         }
         
@@ -154,7 +156,9 @@ function App() {
 
     if (legalMoves.length === 0) {
       console.warn("⛔ No hay movimientos legales disponibles");
-      setGameStatus(GAME_STATUS.GAME_OVER);
+      dispatch({
+  type: ACTIONS.SET_STATUS,
+  payload: GAME_STATUS.GAME_OVER});
       return false;
     }
 
@@ -196,14 +200,39 @@ function App() {
 
   // Función mejorada para mover piezas
   const makeMove = useCallback((move, playSoundEnabled = true) => {
-    try {
-      const newGame = new Chess(gameRef.current.fen());
-      const result = newGame.move(move);
-
-      if (result === null) {
-        console.warn("❌ Movimiento inválido:", move);
-        return false;
+  try {
+    // Protección: si no hay promotion y es un peón que llega a la última fila,
+    // interceptamos y abrimos el modal de promoción en lugar de intentar el move inválido.
+    const pieceAtFrom = gameRef.current.get(move.from);
+    if (pieceAtFrom && pieceAtFrom.type === 'p') {
+      const finalRank = pieceAtFrom.color === 'w' ? '8' : '1';
+      if (move.to && move.to[1] === finalRank && !move.promotion) {
+        // Guardamos la jugada pendiente y forzamos que el jugador elija la pieza
+        setPendingMove({ ...move });
+        setPromotionSquare(move.to);
+        dispatch({ type: ACTIONS.SET_STATUS, payload: GAME_STATUS.PROMOTION });
+        console.log('🔔 makeMove interceptó promoción faltante, mostrando modal', move);
+        return true;
       }
+    }
+
+    const newGame = new Chess(gameRef.current.fen());
+    let result;
+    try {
+      console.log('🔄 makeMove va a ejecutar con:', move);
+      result = newGame.move(move);
+    } catch (error) {
+      console.error("Error en movimiento:", error);
+      return false;
+    }
+
+    if (result === null) {
+      console.warn("❌ Movimiento inválido:", move);
+      return false;
+    }
+
+    // ... resto del makeMove (sin cambios) ...
+
 
       // Reproducir sonido apropiado
       if (playSoundEnabled && soundEnabled) {
@@ -260,7 +289,11 @@ function App() {
 
       // Verificar si el juego terminó
       if (newGame.isGameOver()) {
-        setGameStatus(GAME_STATUS.GAME_OVER);
+       dispatch({
+  type: ACTIONS.SET_STATUS,
+  payload: GAME_STATUS.GAME_OVER });
+
+
         updateGameStats(newGame);
         
         // Efecto de celebración si el jugador gana
@@ -280,93 +313,95 @@ function App() {
                           (playerColor === 'black' && newGame.turn() === 'b');
       
       if (!isPlayerTurn) {
-        setGameStatus(GAME_STATUS.THINKING);
+        dispatch({ type: ACTIONS.SET_STATUS, payload: GAME_STATUS.THINKING });
         setTimeout(() => {
           requestAIMove(newGame);
         }, AI_CONFIG.MOVE_DELAY);
       } else {
-        setGameStatus(GAME_STATUS.PLAYING);
+        dispatch({ type: ACTIONS.SET_STATUS, payload: GAME_STATUS.PLAYING });
       }
 
       return true;
     } catch (error) {
       console.error("Error al hacer movimiento:", error);
-      setError("Error al procesar el movimiento");
+      dispatch({
+  type: ACTIONS.SET_ERROR,
+  payload: "Error al procesar el movimiento"});
+
       return false;
     }
   }, [soundEnabled, playerColor]);
 
   // Función mejorada para solicitar movimiento de IA
   const requestAIMove = useCallback(async (currentGame) => {
-    try {
-      console.log("🤖 IA calculando movimiento...");
-      setError(null);
-      
-      const startTime = Date.now();
-      
-      const aiMovePromise = new Promise((resolve, reject) => {
+  dispatch({ type: ACTIONS.SET_ERROR, payload: null });
+  dispatch({ type: ACTIONS.SET_STATUS, payload: GAME_STATUS.THINKING });
+
+  try {
+    const start = Date.now();
+    const bestMoveObj = await Promise.race([
+      new Promise((res, rej) => {
         try {
-          const bestMove = chessAI.current.getBestMove(currentGame);
-          resolve(bestMove);
-        } catch (error) {
-          reject(error);
+          const mv = chessAI.current.getBestMove(currentGame);
+          res(mv);
+        } catch (e) {
+          rej(e);
         }
-      });
-      
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout')), 15000);
-      });
-      
-      const bestMoveObj = await Promise.race([aiMovePromise, timeoutPromise]);
-      
-      if (!bestMoveObj || !bestMoveObj.move) {
-        console.warn("⚠️ IA no encontró movimiento válido");
-        if (!makeEmergencyMove()) {
-          setGameStatus(GAME_STATUS.GAME_OVER);
-        }
-        return;
-      }
+      }),
+      new Promise((_, rej) =>
+        setTimeout(() => rej(new Error('Timeout')), 15000)
+      )
+    ]);
 
-      // Guarda el análisis
-      setAiAnalysis({
-        move: bestMoveObj.move,
-        evaluation: bestMoveObj.evaluation
-      });
-
-      const thinkingTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, AI_CONFIG.THINKING_TIME - thinkingTime);
-
-      setTimeout(() => {
-        console.log(`🎯 IA eligió: ${bestMoveObj.move.san || bestMoveObj.move}`);
-        
-        const stats = chessAI.current.getStats();
-        setAiStats(stats);
-        
-        const success = makeMove(bestMoveObj.move);
-        if (!success) {
-          console.error("❌ Movimiento de IA falló, usando emergencia");
-          makeEmergencyMove();
-        }
-        
-        chessAI.current.clearCache();
-      }, remainingTime);
-
-    } catch (error) {
-      console.error("Error en IA:", error);
-      
-      if (error.message === 'Timeout') {
-        setError("La IA tardó demasiado en responder");
-      } else {
-        setError("Error del motor de ajedrez");
-      }
-      
-      chessAI.current.reset();
-      
+    if (!bestMoveObj || !bestMoveObj.move) {
       if (!makeEmergencyMove()) {
-        setGameStatus(GAME_STATUS.GAME_OVER);
+        dispatch({ type: ACTIONS.SET_STATUS, payload: GAME_STATUS.GAME_OVER });
       }
+      return;
     }
-  }, [makeEmergencyMove, makeMove]);
+
+    // 1) Guardamos análisis en contexto
+    dispatch({
+      type: ACTIONS.SET_ANALYSIS,
+      payload: {
+        move: bestMoveObj.move.san || bestMoveObj.move,
+        evaluation: bestMoveObj.evaluation
+      }
+    });
+
+    // 2) Esperamos un rato para simular THINKING_TIME
+    const thinkTime = Date.now() - start;
+    const delay = Math.max(0, AI_CONFIG.THINKING_TIME - thinkTime);
+    setTimeout(() => {
+      // Ejecutamos el movimiento
+      const success = makeMove(bestMoveObj.move);
+      if (!success) makeEmergencyMove();
+
+      // 3) Guardamos estadísticas en contexto
+      dispatch({
+        type: ACTIONS.SET_AI_STATS,
+        payload: chessAI.current.getStats()
+      });
+
+      // 4) Limpiamos cache del motor
+      chessAI.current.clearCache();
+
+      // 5) Volvemos a estado PLAYING
+      dispatch({ type: ACTIONS.SET_STATUS, payload: GAME_STATUS.PLAYING });
+    }, delay);
+
+  } catch (err) {
+    // Error o Timeout
+    const msg = err.message === 'Timeout'
+      ? 'La IA tardó demasiado en responder'
+      : 'Error del motor de ajedrez';
+    dispatch({ type: ACTIONS.SET_ERROR, payload: msg });
+    chessAI.current.reset();
+    if (!makeEmergencyMove()) {
+      dispatch({ type: ACTIONS.SET_STATUS, payload: GAME_STATUS.GAME_OVER });
+    }
+  }
+}, [dispatch, makeEmergencyMove, makeMove]);
 
   // Función para actualizar estadísticas del juego
   const updateGameStats = useCallback((endGame) => {
@@ -390,50 +425,41 @@ function App() {
 
   // Función para manejar promoción de peones
   const handlePromotion = useCallback((piece) => {
-    if (pendingMove) {
-      const moveWithPromotion = { ...pendingMove, promotion: piece };
-      const success = makeMove(moveWithPromotion);
-      
-      if (success) {
-        setPromotionSquare(null);
-        setPendingMove(null);
-        setGameStatus(GAME_STATUS.PLAYING);
-      }
-    }
-  }, [pendingMove, makeMove]);
+  if (!pendingMove) return;
+  const moveObj = { ...pendingMove, promotion: piece };
+  setPromotionSquare(null);
+  setPendingMove(null);
+  dispatch({ type: ACTIONS.SET_STATUS, payload: GAME_STATUS.PLAYING });
+  console.log('👑 handlePromotion va a ejecutar:', moveObj);
+  makeMove(moveObj);
+}, [pendingMove, makeMove, dispatch]);
 
-  // Función mejorada para manejar drop de piezas
-  const onDrop = useCallback((sourceSquare, targetSquare, piece) => {
-    if (gameStatus === GAME_STATUS.PROMOTION) {
-      return false;
-    }
+  // Función para manejar el “drop” de piezas, detectando promoción
+const onDrop = useCallback((from, to, pieceDropped) => {
+  // Si estamos en PROMOTION, no permitir drops
+  if (gameStatus === GAME_STATUS.PROMOTION) return false;
 
-    const isPlayerTurn = (playerColor === 'white' && game.turn() === 'w') ||
-                        (playerColor === 'black' && game.turn() === 'b');
+  // Solo turno del jugador
+  const isPlayerTurn =
+    (playerColor === 'white' && game.turn() === 'w') ||
+    (playerColor === 'black' && game.turn() === 'b');
+  if (!isPlayerTurn || gameStatus !== GAME_STATUS.PLAYING) return false;
 
-    if (!isPlayerTurn || gameStatus !== GAME_STATUS.PLAYING) {
-      return false;
-    }
+  // Detectar que es un peón y llega a la última fila
+  const isPawn = pieceDropped.toLowerCase().endsWith('p');
+  const promotionRank = pieceDropped.startsWith('w') ? '8' : '1';
 
-    // Detectar promoción
-    const moveObj = { from: sourceSquare, to: targetSquare };
+  if (isPawn && to[1] === promotionRank) {
+    console.log('💥 onDrop → PROMOTION branch', { from, to, pieceDropped });
+    setPromotionSquare(to);
+    setPendingMove({ from, to });
+    dispatch({ type: ACTIONS.SET_STATUS, payload: GAME_STATUS.PROMOTION });
+    return true;      // solo efecto visual
+  }
 
-// Detectar si es un peón en fila de promoción
-const isPawn = piece.toLowerCase().endsWith('p');
-const isWhite = piece.startsWith('w');
-const promotionRank = isWhite ? '8' : '1';
-
-if (isPawn && targetSquare[1] === promotionRank) {
-  setPromotionSquare(targetSquare);
-  setPendingMove(moveObj);
-  setGameStatus(GAME_STATUS.PROMOTION);
-  return true; // 👈 Cambia false por true
-}
-
-clearHints();
-return makeMove(moveObj);
-
-  }, [gameStatus, game, playerColor, makeMove]);
+  clearHints();
+  return makeMove({ from, to });
+}, [gameStatus, game, playerColor, makeMove, dispatch, clearHints]);
 
   // Función para obtener movimientos posibles (para hints)
   const onSquareClick = useCallback((square) => {
@@ -447,13 +473,14 @@ return makeMove(moveObj);
     const newGame = new Chess();
     setGame(newGame);
     gameRef.current = newGame;
-    setGameStatus(GAME_STATUS.PLAYING);
+  dispatch({ type: ACTIONS.SET_STATUS, payload: GAME_STATUS.PLAYING });
     setMoveHistory([]);
     setCapturedPieces({ white: [], black: [] });
-    setError(null);
-    setAiStats(null);
-    setPromotionSquare(null);
-    setPendingMove(null);
+    dispatch({ type: ACTIONS.SET_ERROR, payload: null });
+    dispatch({ type: ACTIONS.SET_AI_STATS, payload: null });
+    dispatch({ type: ACTIONS.SET_ANALYSIS, payload: null });
+    dispatch({ type: ACTIONS.SET_PROMOTION, payload: null });
+    // etc.
     setHighlightedSquares({});
     setMoveArrows([]);
     setLastMove(null);
