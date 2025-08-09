@@ -187,8 +187,9 @@ function App() {
     };
     
     if (emergencyMove.promotion) {
-      moveObj.promotion = emergencyMove.promotion;
-    }
+  moveObj.promotion = emergencyMove.promotion || 'q';
+}
+
 
     return makeMove(moveObj);
   }, []);
@@ -416,16 +417,22 @@ function App() {
 
     // Detectar promoción
     const moveObj = { from: sourceSquare, to: targetSquare };
-    
-    if (piece[1] === 'P' && (targetSquare[1] === '8' || targetSquare[1] === '1')) {
-      setPromotionSquare(targetSquare);
-      setPendingMove(moveObj);
-      setGameStatus(GAME_STATUS.PROMOTION);
-      return true;
-    }
 
-    clearHints();
-    return makeMove(moveObj);
+// Detectar si es un peón en fila de promoción
+const isPawn = piece.toLowerCase().endsWith('p');
+const isWhite = piece.startsWith('w');
+const promotionRank = isWhite ? '8' : '1';
+
+if (isPawn && targetSquare[1] === promotionRank) {
+  setPromotionSquare(targetSquare);
+  setPendingMove(moveObj);
+  setGameStatus(GAME_STATUS.PROMOTION);
+  return true; // 👈 Cambia false por true
+}
+
+clearHints();
+return makeMove(moveObj);
+
   }, [gameStatus, game, playerColor, makeMove]);
 
   // Función para obtener movimientos posibles (para hints)
